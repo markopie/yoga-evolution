@@ -5,21 +5,22 @@ import { parsePlateGroups } from './privatePlateImages.js';
 import { resolveSupabaseStorageUrl } from './mediaUrl.js';
 import { loadSnapshot, saveSnapshot } from './offlineStore.js';
 import { withNetworkTimeout } from './networkTimeout.js';
+import { mergeAsanaOverrides } from './asanaOverrides.js';
 
 const ASANA_SNAPSHOT_KEY = 'asana-library-v1';
 const COURSE_SNAPSHOT_KEY = 'courses-v1';
 
-/**
- * Bridge: Converts new JSON schema into the app's internal array format
+/** 
+ * Bridge: Converts new JSON schema into the app's internal array format 
  */
 function parseSequenceJSON(json) {
     if (!Array.isArray(json)) return [];
-
+    
     return json.map((item, idx) => {
         if (!item) return null;
         // Schema: [id, duration, name_override, variation_key, note, original_idx, label, meta_obj]
         if (item.type === 'pose') {
-            const meta = {
+            const meta = { 
                 originalJson: item,
                 props: (item.props || []).filter(p => !p.startsWith('side:')),
                 stageId: item.stage_id || null,
@@ -88,11 +89,11 @@ async function fetchCourses(currentUserId = null) {
                 const poses = (row.sequence_json && Array.isArray(row.sequence_json))
                     ? parseSequenceJSON(row.sequence_json)
                     : parseSequenceText(row.sequence_text || '');
-
+                
                 const title = row.title || row.course_title || '';
 
                 if (title && poses.length > 0) {
-
+                    
                     // Resolve variation string keys from stage IDs if loaded from JSON
                     poses.forEach(p => {
                         const meta = p[7];
@@ -112,7 +113,7 @@ async function fetchCourses(currentUserId = null) {
                     const sub    = subObj?.name || '';
                     const categoryId = subObj?.course_categories?.id ?? null;
                     const subCategoryId = subObj?.id ?? row.sub_category_id ?? null;
-
+                    
                     const isFlow  = Number(categoryId) === 55 || String(author).trim().toLowerCase() === 'flow';
                     const isCycle = Number(categoryId) === 56 || String(author).trim().toLowerCase() === 'cycle';
 
@@ -145,7 +146,9 @@ async function fetchCourses(currentUserId = null) {
                         redirect_id: row.redirect_id,
                         poses,
                         isNativeJson: !!(row.sequence_json && Array.isArray(row.sequence_json)),
-                        isUserSequence: categoryString === 'My Sequences',
+                        isUserSequence: categoryString === 'My Sequences' || Boolean(row.user_id),
+                        isSystem: !!row.is_system,
+                        userId: row.user_id || null,
                         id: String(row.id),
                         supabaseId: String(row.id)
                     });
@@ -193,7 +196,7 @@ async function loadAsanaLibrary() {
         const { data: asanasData, error: asanasError } = await withNetworkTimeout(supabase
             .from('asanas')
             .select(`*, asana_categories ( name )`));
-
+            
         if (asanasError) throw asanasError;
 
         const normalized = {};
@@ -240,20 +243,35 @@ async function loadAsanaLibrary() {
             }));
         });
 
-        await saveSnapshot(ASANA_SNAPSHOT_KEY, normalized).catch((error) =>
+        const profileId = window.currentUserId || null;
+        if (profileId) {
+            const { data: overrides, error: overrideError } = await withNetworkTimeout(
+                supabase.from('user_asana_overrides')
+                    .select('asana_id, payload, is_deleted')
+                    .eq('user_id', profileId),
+            );
+            if (overrideError) throw overrideError;
+            Object.assign(normalized, mergeAsanaOverrides(normalized, overrides || []));
+        }
+
+        const snapshotKey = profileId ? `${ASANA_SNAPSHOT_KEY}:${profileId}` : ASANA_SNAPSHOT_KEY;
+        await saveSnapshot(snapshotKey, normalized).catch((error) =>
             console.warn('[Offline] Could not save asana snapshot:', error));
         setAsanaLibrary(normalized);
         return normalized;
 
     } catch (e) {
         console.error("Exception loading asana library:", e);
-        const snapshot = await loadSnapshot(ASANA_SNAPSHOT_KEY).catch(() => null);
+        const profileId = window.currentUserId || null;
+        const snapshot = await loadSnapshot(profileId ? `${ASANA_SNAPSHOT_KEY}:${profileId}` : ASANA_SNAPSHOT_KEY)
+            .catch(() => null)
+            || (profileId ? await loadSnapshot(ASANA_SNAPSHOT_KEY).catch(() => null) : null);
         if (snapshot && typeof snapshot === 'object' && Object.keys(snapshot).length) {
             console.info(`[Offline] Loaded ${Object.keys(snapshot).length} asanas from the device snapshot.`);
             setAsanaLibrary(snapshot);
             return snapshot;
         }
-        window.asanaLibrary = window.asanaLibrary || {};
+        window.asanaLibrary = window.asanaLibrary || {}; 
         return {};
     }
 }
@@ -275,11 +293,11 @@ function normalizeAsana(row, existingData = {}) {
     if (!key) return null;
 
     const rawHoldText = String(row.Hold ?? row.hold ?? existingData.hold ?? '');
-
+    
     // requires_sides (Boolean) -> Handles requiresSides, requires_sides, and "true" strings.
     const rawSides = row.requires_sides ?? row.requiresSides ?? row.Requires_Sides ?? existingData.requires_sides ?? false;
-    const requires_sides = (typeof rawSides === 'string')
-        ? (rawSides.toLowerCase() === 'true')
+    const requires_sides = (typeof rawSides === 'string') 
+        ? (rawSides.toLowerCase() === 'true') 
         : !!rawSides;
 
     // page_primary (Number) -> Ensure it's a float/int, not a string.
@@ -291,8 +309,8 @@ function normalizeAsana(row, existingData = {}) {
 
     // is_variation (Boolean)
     const rawIsVar = row.is_variation ?? row.isVariation ?? existingData.is_variation ?? false;
-    const is_variation = (typeof rawIsVar === 'string')
-        ? (rawIsVar.toLowerCase() === 'true')
+    const is_variation = (typeof rawIsVar === 'string') 
+        ? (rawIsVar.toLowerCase() === 'true') 
         : !!rawIsVar;
 
     // Relational category flattening
@@ -304,11 +322,11 @@ function normalizeAsana(row, existingData = {}) {
     // Resolve hold_json and compute holdTimes for the asana object
     const hold_json = (row.hold_json && typeof row.hold_json === 'object') ? row.hold_json : null;
     const holdTimes = (hold_json && typeof hold_json === 'object')
-        ? {
-            standard: Number(hold_json.standard) || 30,
-            short: Number(hold_json.short) || 15,
-            long: Number(hold_json.long) || 60,
-            flow: Number(hold_json.flow) || 5
+        ? { 
+            standard: Number(hold_json.standard) || 30, 
+            short: Number(hold_json.short) || 15, 
+            long: Number(hold_json.long) || 60, 
+            flow: Number(hold_json.flow) || 5 
           }
         : parseHoldTimes(rawHoldText);
 
@@ -319,7 +337,7 @@ function normalizeAsana(row, existingData = {}) {
         name: row.name ?? existingData.name ?? `Pose ${key}`,
         iast: row.iast ?? existingData.iast ?? '',
         english: row.english_name ?? row.english ?? row.name ?? existingData.english ?? `Pose ${key}`,
-        devanagari: row.devanagari ?? existingData.devanagari ?? '',
+        devanagari: row.devanagari ?? existingData.devanagari ?? '', 
         audio: resolveSupabaseStorageUrl(row.audio_url ?? row.audio ?? existingData.audio ?? '', 'audio-assets'),
         image_url: resolveSupabaseStorageUrl(row.image_url ?? existingData.image_url ?? '', 'yoga-cards'),
         plate_numbers_raw: row.plate_numbers ?? existingData.plate_numbers_raw ?? '',
@@ -363,23 +381,23 @@ function normalizeStageRow(stage, index = 0) {
     // Resolve hold_json and compute holdTimes for the variation object
     const hold_json = (stage.hold_json && typeof stage.hold_json === 'object') ? stage.hold_json : null;
     const holdTimes = (hold_json && typeof hold_json === 'object')
-        ? {
-            standard: Number(hold_json.standard) || 30,
-            short: Number(hold_json.short) || 15,
-            long: Number(hold_json.long) || 60,
-            flow: Number(hold_json.flow) || 5
+        ? { 
+            standard: Number(hold_json.standard) || 30, 
+            short: Number(hold_json.short) || 15, 
+            long: Number(hold_json.long) || 60, 
+            flow: Number(hold_json.flow) || 5 
           }
         : parseHoldTimes(holdStr);
-
+    
     let page_primary = stage.page_primary ?? null;
     if (page_primary != null && page_primary !== "") {
         page_primary = parseFloat(page_primary);
         if (isNaN(page_primary)) page_primary = null;
     }
 
-    const rawIsVar = stage.is_variation ?? stage.isVariation ?? true;
-    const is_variation = (typeof rawIsVar === 'string')
-        ? (rawIsVar.toLowerCase() === 'true')
+    const rawIsVar = stage.is_variation ?? stage.isVariation ?? true; 
+    const is_variation = (typeof rawIsVar === 'string') 
+        ? (rawIsVar.toLowerCase() === 'true') 
         : !!rawIsVar;
 
     return {
@@ -400,7 +418,7 @@ function normalizeStageRow(stage, index = 0) {
             page_primary,
             is_variation,
             isCustom: !!stage.user_id,
-            sort_order: stage.sort_order ?? index
+            sort_order: stage.sort_order ?? index 
         }
     };
 }
@@ -412,12 +430,12 @@ function normalizeAsanaRow(row, existingData = {}) {
 function normalizePlate(p) {
    const s = String(p ?? "").trim();
    if (!s) return "";
-
+   
    // If pure number (e.g. "1"), pad to "001"
    if (/^\d+$/.test(s)) {
        return s.padStart(3, '0');
    }
-   return s;
+   return s; 
 }
 
 function parsePlates(plateStr) {
@@ -442,7 +460,7 @@ function findAsanaByIdOrPlate(id) {
     if (!id) return null;
     const lib = window.asanaLibrary || {};
     const asanaArray = Object.values(lib);
-
+    
     // Clean the incoming ID (remove leading zeros and whitespace)
     const cleanSearchId = String(id).trim().replace(/^0+/, '');
 

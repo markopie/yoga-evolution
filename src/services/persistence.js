@@ -1,9 +1,6 @@
 import { supabase } from './supabaseClient.js';
 
-/**
- * Parses a "Main > Sub" string, checks the DB, and creates missing relational categories.
- * Returns the sub_category_id to be linked to the sequence.
- */
+/** Resolve an existing shared category without creating global taxonomy rows. */
 export async function getOrCreateSubCategoryId(fullCategoryString) {
     if (!fullCategoryString) return null;
 
@@ -20,16 +17,7 @@ export async function getOrCreateSubCategoryId(fullCategoryString) {
 
     if (catErr) throw new Error(`Category lookup failed: ${catErr.message}`);
 
-    if (!cat) {
-        const { data: newCat, error: newCatErr } = await supabase
-            .from('course_categories')
-            .insert({ name: mainName })
-            .select()
-            .single();
-
-        if (newCatErr) throw new Error(`Failed to create new category: ${newCatErr.message}`);
-        cat = newCat;
-    }
+    if (!cat) return null;
 
     // 2. Get or Create the Sub-Category (Course/Level)
     let { data: sub, error: subErr } = await supabase
@@ -41,29 +29,13 @@ export async function getOrCreateSubCategoryId(fullCategoryString) {
 
     if (subErr) throw new Error(`Sub-category lookup failed: ${subErr.message}`);
 
-    if (!sub) {
-        const { data: newSub, error: newSubErr } = await supabase
-            .from('course_sub_categories')
-            .insert({ category_id: cat.id, name: subName })
-            .select()
-            .single();
-
-        if (newSubErr) throw new Error(`Failed to create new sub-category: ${newSubErr.message}`);
-        sub = newSub;
-    }
-
-    return sub.id;
+    return sub?.id ?? null;
 }
 
-/**
- * Safely saves or updates a course, resolving category IDs automatically.
- * @param {Object} payload - The course data to save
- * @param {string|null} knownId - The known Supabase ID of an existing course (for updates)
- * @param {boolean} isAdminOverride - If true, bypass user_id ownership check (for admin editing system courses)
- */
-export async function saveSequence(payload, knownId = null, isAdminOverride = false) {
+/** Save a profile-owned sequence; shared sequences must be copied first. */
+export async function saveSequence(payload, knownId = null) {
     const subCategoryId = await getOrCreateSubCategoryId(payload.category);
-
+    
     // Logic Architect Note: Ensure user_id is explicitly present
     if (!payload.user_id) {
         throw new Error("Security Violation: Cannot save sequence without a valid user_id.");
@@ -72,7 +44,8 @@ export async function saveSequence(payload, knownId = null, isAdminOverride = fa
     const dbPayload = {
         title: payload.title,
         sequence_json: payload.sequence_json,
-        sub_category_id: subCategoryId,
+        sub_category_id: subCategoryId, 
+        category: payload.category || null,
         last_edited: payload.last_edited,
         user_id: payload.user_id, // Mandatory for the new RLS check
         condition_notes: payload.condition_notes,
@@ -81,68 +54,29 @@ export async function saveSequence(payload, knownId = null, isAdminOverride = fa
     };
 
     if (payload.sequence_text !== undefined) dbPayload.sequence_text = payload.sequence_text;
-
-    // Logic Architect Note: is_system should ONLY be allowed if the user has admin roles
-    if (payload.is_system !== undefined) dbPayload.is_system = payload.is_system;
+    
+    dbPayload.is_system = false;
 
     // 1. Direct Update via knownId
     if (knownId) {
-        let query = supabase
+        const { data, error } = await supabase
             .from('courses')
             .update(dbPayload)
-            .eq('id', knownId);
-
-        // 🛡️ CRITICAL: Only filter by user_id if NOT an admin override.
-        // Administrators need to edit system courses that
-        // may have a different user_id or null user_id in the database.
-        if (!isAdminOverride) {
-            query = query.eq('user_id', payload.user_id);
-        }
-
-        const { error } = await query;
+            .eq('id', knownId)
+            .eq('user_id', payload.user_id)
+            .select('id')
+            .maybeSingle();
         if (error) throw error;
+        if (!data) throw new Error('This sequence is not owned by the active profile. Save a personal copy to edit it.');
         return { id: knownId };
-    }
+    } 
 
-    // 2. Ownership-Aware Upsert (Check title AND user_id)
-    let selectQuery = supabase
-        .from('courses')
-        .select('id')
-        .eq('title', dbPayload.title)
-        .eq('sub_category_id', subCategoryId);
-
-    // 🛡️ CRITICAL: Don't overwrite other users' titles, unless admin override
-    if (!isAdminOverride) {
-        selectQuery = selectQuery.eq('user_id', payload.user_id);
-    }
-
-    const { data: existing, error: selErr } = await selectQuery.maybeSingle();
-
-    if (selErr) throw selErr;
-
-    if (existing) {
-        let updateQuery = supabase
-            .from('courses')
-            .update(dbPayload)
-            .eq('id', existing.id);
-
-        // 🛡️ CRITICAL Safety redundancy, bypassed for admin override
-        if (!isAdminOverride) {
-            updateQuery = updateQuery.eq('user_id', payload.user_id);
-        }
-
-        const { error } = await updateQuery;
-        if (error) throw error;
-        return { id: existing.id };
-    }
-
-    // 3. Fresh Insert
     const { data: inserted, error: insErr } = await supabase
         .from('courses')
         .insert([dbPayload])
         .select('id')
         .single();
-
+        
     if (insErr) throw insErr;
     return { id: inserted.id };
 }

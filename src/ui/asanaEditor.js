@@ -6,7 +6,7 @@
 import { $, normaliseText } from '../utils/dom.js';
 import { supabase } from '../services/supabaseClient.js';
 import { loadAsanaLibrary } from '../services/dataAdapter.js';
-import { findAsanaCategoryId } from '../services/persistence.js';
+import { makePersonalAsanaId } from '../services/asanaOverrides.js';
 
 
 /**
@@ -91,16 +91,26 @@ async function populateCategorySelect() {
 window.openAsanaEditor = async function(asanaId) {
     const backdrop = $("asanaEditorBackdrop");
     if (!backdrop) return;
+    if (!window.currentUserId) {
+        alert('Choose a profile before editing your asana library.');
+        return;
+    }
 
     const lib = window.asanaLibrary || {};
-    const normId = asanaId ? (typeof window.normalizePlate === 'function' ? window.normalizePlate(asanaId) : asanaId) : null;
+    const normId = asanaId
+        ? (typeof window.normalizePlate === 'function' ? window.normalizePlate(asanaId) : asanaId)
+        : makePersonalAsanaId(lib);
     const asana = normId ? lib[normId] : null;
 
     // Populate category select on first open
     await populateCategorySelect();
 
     // Populate Main Fields
-    $("editAsanaId").value = asanaId || "000";
+    $("editAsanaId").value = normId;
+    const editorTitle = $("asanaEditorTitle");
+    if (editorTitle) editorTitle.textContent = asana ? 'Edit Asana in This Profile' : 'Add Asana to This Profile';
+    const deleteButton = $("deleteAsanaOverrideBtn");
+    if (deleteButton) deleteButton.hidden = !asana;
     $("editAsanaEnglish").value = asana?.english || asana?.english_name || "";
     $("editAsanaName").value = asana?.name || "";
     $("editAsanaIAST").value = asana?.iast || "";
@@ -264,26 +274,13 @@ window.addStageToEditor = function(stageKey, stageData = {}) {
 };
 
 /**
- * Deletes a stage row from the editor and from the database if it has been saved.
- * Called when the ✕ button on a stage row is clicked.
+ * Removes a stage row from this profile's pending asana edit.
+ * The removal is stored when Save Asana is pressed.
  */
 window.deleteStageRow = async function(btn) {
     const div = btn.closest('.stage-row');
     if (!div) return;
 
-    const stageId = div.dataset.stageId;
-    if (stageId) {
-        // This stage exists in the database — delete it
-        try {
-            const { error } = await supabase.from("stages").delete().eq("id", stageId);
-            if (error) throw error;
-        } catch (err) {
-            console.error("Failed to delete stage:", err);
-            alert("Error deleting stage: " + err.message);
-            return;
-        }
-    }
-    // Remove the DOM element
     div.remove();
 };
 
@@ -542,25 +539,44 @@ window.setupAsanaEditorSave = function() {
     saveBtn.onclick = async () => {
         const id = $("editAsanaId").value.trim().padStart(3, "0");
         if (!id || id === "000") return;
+        if (!window.currentUserId) return alert('Choose a profile before saving asana edits.');
+        if (!navigator.onLine) return alert('Connect to save asana edits to this profile.');
 
         try {
-            // Resolve category name to an existing category_id (FK to asana_categories table).
             const catSelect = $("editAsanaCategory");
             const catCustom = $("editAsanaCategoryCustom");
             const categoryName = (catCustom && catCustom.style.display !== "none" && catCustom.value.trim())
                 ? catCustom.value.trim()
                 : (catSelect ? catSelect.value : "");
-            const category_id = categoryName ? await findAsanaCategoryId(categoryName) : null;
+            const existing = window.asanaLibrary?.[id] || {};
+            const variations = {};
+            const stageRows = document.querySelectorAll(".stage-row");
+            for (let i = 0; i < stageRows.length; i++) {
+                const div = stageRows[i];
+                const stageKey = div.querySelector(".stage-name").value.trim() || `_new_${i}`;
+                variations[stageKey] = {
+                    id: div.dataset.stageId || `profile-${crypto.randomUUID()}`,
+                    title: div.querySelector(".stage-title").value.trim(),
+                    full_technique: div.querySelector(".stage-tech").value.trim(),
+                    technique: div.querySelector(".stage-tech").value.trim(),
+                    hold_json: buildStageHoldJson(div),
+                    sort_order: i,
+                    preparatory_pose_id: buildInjectionPayload(div.querySelector(".stage-prep")?.value),
+                    recovery_pose_id: buildInjectionPayload(div.querySelector(".stage-recov")?.value),
+                };
+            }
 
             const asanaPayload = {
                 id,
+                asanaNo: id,
                 english_name: $("editAsanaEnglish").value.trim(),
+                english: $("editAsanaEnglish").value.trim(),
                 name: $("editAsanaName").value.trim(),
                 iast: $("editAsanaIAST").value.trim(),
                 technique: $("editAsanaTechnique").value.trim(),
                 description: $("editAsanaDescription").value.trim(),
                 requires_sides: $("editAsanaRequiresSides").checked,
-                category_id,
+                category: categoryName,
                 intensity: $("editAsanaIntensity")?.value?.trim() || "",
                 hold_json: {
                     standard: parseInt($("editAsanaHoldStandard")?.value || "30", 10),
@@ -569,43 +585,19 @@ window.setupAsanaEditorSave = function() {
                 },
                 note: $("editAsanaNote")?.value?.trim() || "",
                 preparatory_pose_id: buildInjectionPayload($("editAsanaPrep")?.value),
-                recovery_pose_id: buildInjectionPayload($("editAsanaRecov")?.value)
+                recovery_pose_id: buildInjectionPayload($("editAsanaRecov")?.value),
+                variations,
+                isCustom: true,
             };
 
-            const { error: asanaErr } = await supabase.from("asanas").upsert(asanaPayload);
+            const { error: asanaErr } = await supabase.from("user_asana_overrides").upsert({
+                user_id: window.currentUserId,
+                asana_id: id,
+                payload: asanaPayload,
+                is_deleted: false,
+                updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id,asana_id' });
             if (asanaErr) throw asanaErr;
-
-            // Handle Stages...
-            // Use insert for new stages, update for existing ones (identified by data-stage-id)
-            const stageRows = document.querySelectorAll(".stage-row");
-            for (let i = 0; i < stageRows.length; i++) {
-                const div = stageRows[i];
-                const stagePayload = {
-                    asana_id: id,
-                    stage_name: div.querySelector(".stage-name").value.trim(),
-                    title: div.querySelector(".stage-title").value.trim(),
-                    full_technique: div.querySelector(".stage-tech").value.trim(),
-                    hold_json: buildStageHoldJson(div),
-                    sort_order: i,
-                    preparatory_pose_id: buildInjectionPayload(div.querySelector(".stage-prep")?.value),
-                    recovery_pose_id: buildInjectionPayload(div.querySelector(".stage-recov")?.value)
-                };
-                const existingStageId = div.dataset.stageId;
-                if (existingStageId) {
-                    // Update existing stage by its UUID
-                    const { error: stageErr } = await supabase
-                        .from("stages")
-                        .update(stagePayload)
-                        .eq("id", existingStageId);
-                    if (stageErr) throw stageErr;
-                } else {
-                    // Insert new stage
-                    const { error: stageErr } = await supabase
-                        .from("stages")
-                        .insert(stagePayload);
-                    if (stageErr) throw stageErr;
-                }
-            }
 
             // Reload the asana library so the editor shows fresh data on re-open
             window.asanaLibrary = await loadAsanaLibrary();
@@ -628,6 +620,33 @@ window.setupAsanaEditorSave = function() {
             alert("Error saving: " + err.message);
         }
     };
+
+    const deleteBtn = $("deleteAsanaOverrideBtn");
+    if (deleteBtn) {
+        deleteBtn.onclick = async () => {
+            const id = $("editAsanaId")?.value?.trim();
+            if (!id || !window.currentUserId || !navigator.onLine) {
+                alert('Connect to save changes to this profile.');
+                return;
+            }
+            if (!window.confirm('Remove this asana from this profile? The shared source and other profiles will be unchanged.')) return;
+            try {
+                const { error } = await supabase.from('user_asana_overrides').upsert({
+                    user_id: window.currentUserId,
+                    asana_id: id,
+                    payload: {},
+                    is_deleted: true,
+                    updated_at: new Date().toISOString(),
+                }, { onConflict: 'user_id,asana_id' });
+                if (error) throw error;
+                window.asanaLibrary = await loadAsanaLibrary();
+                $("asanaEditorBackdrop").style.display = "none";
+                if (typeof window.applyBrowseFilters === "function") window.applyBrowseFilters();
+            } catch (error) {
+                alert('Could not remove asana from this profile: ' + error.message);
+            }
+        };
+    }
 };
 
 if (document.readyState === 'loading') {

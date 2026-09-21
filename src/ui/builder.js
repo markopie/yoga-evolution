@@ -16,7 +16,6 @@ const isProtectedSequence = (...args) => window.isProtectedSequence ? window.isP
 const getEffectiveTime = (...args) => window.getEffectiveTime ? window.getEffectiveTime(...args) : args[1];
 const getAsanaIndex = () => Object.values(window.asanaLibrary || {}).filter(Boolean);
 
-const isAdmin = () => window.isAppAdmin === true;
 const resetBusyCursorState = () => {
     const activeEl = document.activeElement;
     if (activeEl && typeof activeEl.blur === "function") activeEl.blur();
@@ -28,10 +27,10 @@ export function updateToolbarState() {
     const checkedCount = document.querySelectorAll('.b-row-select:checked').length;
     const btnDelete = document.getElementById("btnDeleteSelected");
     const btnRepeat = document.getElementById("btnGroupRepeat");
-
+    
     if (btnDelete) btnDelete.style.display = checkedCount > 0 ? "inline-block" : "none";
-
-    if (btnRepeat) btnRepeat.style.display = checkedCount > 0 ? "inline-block" : "none";
+    
+    if (btnRepeat) btnRepeat.style.display = checkedCount > 0 ? "inline-block" : "none"; 
 }
 
 export function getTargetInsertionIndex() {
@@ -41,11 +40,11 @@ export function getTargetInsertionIndex() {
 
 export function clearBuilderSelection() {
     document.querySelectorAll('.b-row-select:checked').forEach(cb => cb.checked = false);
-    updateToolbarState();
+    updateToolbarState(); 
 }
 
 /**
- * Returns true if the sequence is a 'flow' or 'cycle', meaning it should
+ * Returns true if the sequence is a 'flow' or 'cycle', meaning it should 
  * bypass standard structural injections (prep/recovery).
  */
 function getEffectiveProtectedStatus() {
@@ -63,18 +62,18 @@ function builderRender() {
     tbody.innerHTML = "";
     const emptyMsg = document.getElementById("builderEmptyMsg");
     if (emptyMsg) emptyMsg.style.display = builderState.poses.length ? "none" : "block";
-
+ 
     let totalSec = 0;
     const libraryArray = Object.values(window.asanaLibrary || {});
     const libMap = window.asanaLibrary || {};
     const catElement = document.getElementById("builderCategory");
-
+    
     // Structural status (Flow or Cycle)
     const isProtected = getEffectiveProtectedStatus();
     // Timing status (Flow Only)
     const isFlowTiming = isFlowSequence() || (builderState.currentPlaybackMode == null && (catElement?.value || "").toLowerCase().includes("flow"));
     const macroDurationCache = new Map();
-
+ 
     builderState.poses.forEach((pose, idx) => {
         const idStr = String(pose.id);
         const durOrReps = Number(pose.duration) || 0;
@@ -85,11 +84,11 @@ function builderRender() {
         const disableRowSelect = false;
         const idStrNumeric = idStr.match(/^\d+/)?.[0] || idStr;
         let asana = null;
-
+    
         let macroInfo = null;
         let macroCourse = null;
         if (isMacro) {
-            const identifier = idStr.replace("MACRO:", "").trim();
+            const identifier = idStr.replace("MACRO:", "").trim(); 
             const subCourse = findLinkedSequence(identifier);
             if (subCourse && subCourse.poses) {
                 macroCourse = subCourse;
@@ -115,16 +114,16 @@ function builderRender() {
         } else if (!isSpecial) {
             const normId = typeof normalizePlate === "function" ? normalizePlate(idStr) : idStr;
             asana = libraryArray.find(a => String(a.id || a.asanaNo) === String(normId));
-
+            
             const hj = asana ? (window.getHoldTimes ? window.getHoldTimes(asana, pose.variation) : (asana.hold_json || { standard: 30 })) : { standard: 30 };
             const activeTime = isFlowTiming ? (pose.flowHoldOverride || hj.flow || hj.standard || 5) : (pose.duration || hj.standard || 30);
             const tier = pose.holdTier === 'short' ? 'S' : (pose.holdTier === 'long' ? 'L' : null);
             const meta = { explicitSide: pose.side || null };
-
+            
             totalSec += getEffectiveTime(idStr, activeTime, tier, pose.variation, pose.note, false, null, meta);
         }
 
-        const devanagari = asana?.devanagari || "";
+        const devanagari = asana?.devanagari || ""; 
         const iast = asana?.iast || "";
 
         const viewModePropsHTML = (pose.props || []).length > 0 ? `
@@ -135,7 +134,7 @@ function builderRender() {
                     const icon = p ? p.icon : '❓';
                     const label = p ? p.label : pid;
                     const r = parseInt(color.slice(1,3), 16), g = parseInt(color.slice(3,5), 16), b = parseInt(color.slice(5,7), 16);
-
+                    
                     return `<span class="b-prop-chip" style="border-color: ${color}; color: ${color}; background: rgba(${r},${g},${b},0.08);">
                         ${icon} ${label}
                     </span>`;
@@ -250,12 +249,12 @@ function builderRender() {
               ${viewModePropsHTML}
               ${(isLoopStart || isLoopEnd) ? '' : generatePoseNoteInputHTML(pose, idx)}
               <div class="edit-only-inline" style="display:flex; align-items:center; flex-wrap:wrap; gap:4px; font-size:0.75rem; color:#666;">
-                 ${isLoopStart || isLoopEnd ? `<span style="color:#999; font-size:0.65rem; text-transform:uppercase; font-weight:bold; letter-spacing:0.02em;">System Block</span>` :
+                 ${isLoopStart || isLoopEnd ? `<span style="color:#999; font-size:0.65rem; text-transform:uppercase; font-weight:bold; letter-spacing:0.02em;">System Block</span>` : 
                    (isMacro ? `ID: <span style="font-family:monospace; background:#f0f0f0; padding:2px 6px; border-radius:4px; border:1px solid #ddd; font-size:0.7rem; color:#333;">${pose.id.replace("MACRO:", "")}</span>
                                <button class="tiny b-macro-swap" data-idx="${idx}" style="padding:2px 8px; border-radius:4px; border:1px solid #007aff; background:#fff; color:#007aff; cursor:pointer; font-weight:600; font-size:0.65rem;" title="Change Linked Sequence">Swap</button>` :
                                 `ID: <input type="text" class="b-id" data-idx="${idx}" value="${pose.id}" style="width:50px; padding:2px; border:1px solid #ccc; border-radius:4px;">
                                 <div style="display:inline-flex; align-items:center; margin-left:4px; vertical-align:middle;">
-                                    <div class="b-prop-picker-btn" data-idx="${idx}"
+                                    <div class="b-prop-picker-btn" data-idx="${idx}" 
                                          title="${(pose.props || []).length > 0 ? 'Active Props: ' + pose.props.map(p => PROP_REGISTRY[p]?.label).join(', ') : 'Select Props'}"
                                          style="cursor:pointer; font-size:1.1rem; opacity:${(pose.props || []).length > 0 ? '1' : '0.3'}; filter:${(pose.props || []).length > 0 ? 'none' : 'grayscale(1)'};">
                                         🧰
@@ -278,7 +277,7 @@ function builderRender() {
       <button class="tiny b-move-bot" data-idx="${idx}" title="Move to Bottom" ${idx === builderState.poses.length - 1 ? 'disabled style="opacity:0.3; cursor:default;"' : ''}>⤓</button>
   </div>
 </td>`;
-
+           
         tbody.appendChild(tr);
 
         if (pose._ambiguous && pose._alternatives && pose._alternatives.length > 0) {
@@ -302,13 +301,13 @@ function builderRender() {
         }
 
         if (idx === 0 && builderState.poses.length > 1) {
-            tr.style.backgroundColor = "#fff9c4";
+            tr.style.backgroundColor = "#fff9c4"; 
             setTimeout(() => { tr.style.transition = "background 1s"; tr.style.backgroundColor = ""; }, 100);
         }
-    });
+    }); 
 
     const qS = (sel) => tbody.querySelectorAll(sel);
-
+    
     qS('.b-row-select').forEach(cb => cb.onchange = (e) => {
         const idx = parseInt(cb.dataset.idx);
         const pose = builderState.poses[idx];
@@ -329,7 +328,7 @@ function builderRender() {
                 if (pairCb) pairCb.checked = isChecked;
             }
         }
-
+        
         updateToolbarState(); // 👈 ADDED: Triggers the Delete/Repeat buttons to appear
     });
 
@@ -343,7 +342,7 @@ function builderRender() {
         e.preventDefault();
         const idx = parseInt(btn.dataset.idx, 10);
         const side = btn.dataset.side; // Will be 'L', 'R', or ''
-
+        
         setPoseSide(idx, side);
         builderRender();
     });
@@ -351,7 +350,7 @@ function builderRender() {
 function openPropPicker(idx) {
     const pose = builderState.poses[idx];
     if (!pose) return;
-
+    
     let overlay = document.getElementById("propPickerOverlay");
     if (!overlay) {
         document.body.insertAdjacentHTML('beforeend', `
@@ -362,7 +361,7 @@ function openPropPicker(idx) {
                         <button class="tiny" onclick="document.getElementById('propPickerOverlay').style.display='none'">✕</button>
                     </div>
                     <div class="modal-body" id="propPickerList" style="padding:15px; display:flex; flex-direction:column; gap:8px; overflow-y:auto; max-height:300px;"></div>
-
+                    
                     <details id="customPropAccordion" style="border-top:1px solid #eee; background:#f9f9f9; border-bottom-left-radius:16px; border-bottom-right-radius:16px;">
                         <summary style="padding:14px; font-size:0.75rem; color:#007aff; font-weight:700; text-transform:uppercase; cursor:pointer; outline:none; user-select:none;">
                             + Add Custom Prop
@@ -432,11 +431,12 @@ function openPropPicker(idx) {
             const bannerHtml = htmlInp.value.trim() || `Instructions for ${label} go here.`;
 
             if (!label) return alert("Please provide a name for the prop.");
-
+            if (!window.currentUserId) return alert("Choose a profile before adding a personal prop.");
+            if (!navigator.onLine) return alert("Connect to save a personal prop to this profile.");
+            
             const pid = label.toLowerCase().replace(/\s+/g, '_');
             if (PROP_REGISTRY[pid]) return alert("This prop already exists.");
 
-            // 🌟 PERSIST TO SUPABASE
             const payload = {
                 id: pid,
                 label,
@@ -448,15 +448,20 @@ function openPropPicker(idx) {
             };
 
             try {
-                const { error } = await supabase.from('props').upsert(payload);
+                const { error } = await supabase.from('user_prop_overrides').upsert({
+                    user_id: window.currentUserId,
+                    prop_id: pid,
+                    payload: { ...payload, audioCue, bannerTitle, bannerHtml },
+                    updated_at: new Date().toISOString(),
+                }, { onConflict: 'user_id,prop_id' });
                 if (error) throw error;
 
                 // Inject into local memory registry
                 PROP_REGISTRY[pid] = { id: pid, label, icon, color: "#007aff", audioCue, bannerTitle, bannerHtml };
-
+                
                 if (!pose.props) pose.props = [];
                 pose.props.push(pid);
-
+                
                 // Reset fields and close accordion
                 [iconInp, labelInp, audioInp, titleInp, htmlInp].forEach(el => el.value = "");
                 document.getElementById("customPropAccordion").open = false;
@@ -465,7 +470,7 @@ function openPropPicker(idx) {
                 builderRender();
             } catch (err) {
                 console.error("[Props] Save failed:", err);
-                alert("Failed to save prop to global library: " + err.message);
+                alert("Failed to save prop to this profile: " + err.message);
             }
         };
     }
@@ -493,7 +498,7 @@ function openPropPicker(idx) {
         const i = el.dataset.idx;
         let val = el.value.trim();
         if(!val.startsWith("MACRO:")) val = val.padStart(3, '0');
-
+        
         // 👈 THE FIX: Clear Phantom State
         // If the ID actually changed, wipe out any old variation data
         if (builderState.poses[i].id !== val) {
@@ -531,7 +536,7 @@ function openPropPicker(idx) {
             const isFlowNow = isFlowSequence() || (builderState.currentPlaybackMode == null && catVal.includes("flow"));
             const hj = window.getHoldTimes ? window.getHoldTimes(asanaMatch, el.value) : (asanaMatch.hold_json || { standard: 30 });
             const nextDuration = isFlowNow ? (hj.flow || hj.standard || 5) : (hj.standard || 30);
-            builderState.poses[i].duration = nextDuration;
+            builderState.poses[i].duration = nextDuration; 
             builderState.poses[i].flowHoldOverride = isFlowNow ? nextDuration : null;
         }
         builderRender();
@@ -556,7 +561,7 @@ function openPropPicker(idx) {
         } else if (builderState.poses[idx].id === "LOOP_START") {
             builderState.poses[idx].name = `🔁 Repeat Block (${val} Rounds)`;
         }
-        builderRender();
+        builderRender(); 
     });
 
     const findLoopRange = (idx) => {
@@ -676,10 +681,10 @@ function openPropPicker(idx) {
             const meta = { explicitSide: p.side || null };
             return [p.id, p.duration, p.variation || "", p.variation || "", noteWithTier, null, null, meta];
         });
-
+        
         const tempSeq = { poses: tempPoses };
         const expanded = (typeof window.getExpandedPoses === "function") ? window.getExpandedPoses(tempSeq) : builderState.poses;
-
+        
         const authoredPoses  = expanded.filter(p => !String(p[4] || "").includes("Auto-Injected"));
         const injectedPoses  = expanded.filter(p =>  String(p[4] || "").includes("Auto-Injected"));
 
@@ -723,29 +728,29 @@ async function processSemicolonCommand(commandString) {
 
     if (validItems.length === 0) return;
 
-    let insertAt = getTargetInsertionIndex();
+    let insertAt = getTargetInsertionIndex(); 
 
     validItems.forEach(item => {
         const catVal = (document.getElementById("builderCategory")?.value || "").toLowerCase();
         const isFlowNow = isFlowSequence() || (builderState.currentPlaybackMode == null && catVal.includes("flow"));
-
+        
         // Fix: Use asana.hold_json if window.getHoldTimes is missing/stale
-        const hj = item.asana
-            ? (window.getHoldTimes ? window.getHoldTimes(item.asana, item.stageKey || null) : (item.asana.hold_json || { standard: 30, flow: 5 }))
+        const hj = item.asana 
+            ? (window.getHoldTimes ? window.getHoldTimes(item.asana, item.stageKey || null) : (item.asana.hold_json || { standard: 30, flow: 5 })) 
             : { standard: 30, flow: 5 };
-
+            
         const duration = isFlowNow ? (hj.flow || hj.standard || 5) : (hj.standard || 30);
-
+        
         addPoseToBuilder({
-            id: item.id, name: item.name, duration, variation: item.stageKey || '', note: item.stageKey ? `[${item.stageKey}]` : '',
+            id: item.id, name: item.name, duration, variation: item.stageKey || '', note: item.stageKey ? `[${item.stageKey}]` : '', 
             holdTier: 'standard', flowHoldOverride: isFlowNow ? duration : null,
             _ambiguous: item._ambiguous || false, _pageNum: item._pageNum || null, _alternatives: item._alternatives || []
         }, insertAt);
-
-        if (insertAt >= 0) insertAt++;
+        
+        if (insertAt >= 0) insertAt++; 
     });
 
-    clearBuilderSelection();
+    clearBuilderSelection(); 
     builderRender();
 }
 
@@ -757,15 +762,16 @@ function openEditCourse() {
 function builderOpen(mode, seq) {
 
     if (window.speechSynthesis) window.speechSynthesis.cancel();
-
+    
     builderState.mode = mode;
     builderState.editingCourseIndex = -1;
-    builderState.poses = [];
-    let targetId = seq ? (seq.supabaseId || seq.id) : null;
+    builderState.poses = []; 
+   const cloningSharedSequence = Boolean(seq?.isSystem);
+   let targetId = seq && !cloningSharedSequence ? (seq.supabaseId || seq.id) : null;
 
-    builderState.isViewMode = (mode === "edit");
+    builderState.isViewMode = (mode === "edit"); 
 
-    const catSelect = $("builderCategory");
+    const catSelect = $("builderCategory"); 
     const catCustom = $("builderCategoryCustom");
     const titleEl = $("builderTitle");
     const modeLabel = $("builderModeLabel");
@@ -774,7 +780,7 @@ function builderOpen(mode, seq) {
     // --- Jobbsian Note Entry Injection ---
     let notesEl = $("builderNotes");
     let displayNotes = $("displayNotes");
-
+    
     if (!notesEl) {
         // Robust Injection: Use Title parent as fallback to ensure the box is always created
         const titleEl = document.getElementById("builderTitle");
@@ -803,7 +809,7 @@ function builderOpen(mode, seq) {
         const allCats = [...new Set((window.courses || []).map(c => c.category))].filter(Boolean).sort();
 
         if (catSelect.tagName === "SELECT") {
-            catSelect.innerHTML = '<option value="">-- Select category --</option>' +
+            catSelect.innerHTML = '<option value="">-- Select category --</option>' + 
                 allCats.map(c => `<option value="${c}">${c}</option>`).join('') +
                 '<option value="__NEW__" style="font-weight:bold; color:#007aff;">+ Create New Category...</option>';
         } else {
@@ -841,10 +847,10 @@ function builderOpen(mode, seq) {
 
     builderState.editingSupabaseId = targetId;
     document.body.classList.add("modal-open");
-
+    
     setupBuilderSearch(
-        getAsanaIndex,
-        (asma) => {
+        getAsanaIndex, 
+        (asma) => { 
             const insertAt = getTargetInsertionIndex(); // 👈 Find ticked box
             const catVal = (document.getElementById("builderCategory")?.value || "").toLowerCase();
             const isFlowNow = isFlowSequence() || (builderState.currentPlaybackMode == null && catVal.includes("flow"));
@@ -852,18 +858,18 @@ function builderOpen(mode, seq) {
             addPoseToBuilder({
                 id: asma.id,
                 name: displayName(asma),
-                duration: (() => {
-                    const holdTimes = window.getHoldTimes ? window.getHoldTimes(asma) : { standard: 30, flow: 5 };
-                    return isFlowNow ? (holdTimes.flow || holdTimes.standard || 5) : (holdTimes.standard || 30);
+                duration: (() => { 
+                    const holdTimes = window.getHoldTimes ? window.getHoldTimes(asma) : { standard: 30, flow: 5 }; 
+                    return isFlowNow ? (holdTimes.flow || holdTimes.standard || 5) : (holdTimes.standard || 30); 
                 })(),
                 variation: "",
                 note: "",
-                flowHoldOverride: isFlowNow ? (() => {
-                    const holdTimes = window.getHoldTimes ? window.getHoldTimes(asma) : { standard: 30, flow: 5 };
-                    return (holdTimes.flow || holdTimes.standard || 5);
+                flowHoldOverride: isFlowNow ? (() => { 
+                    const holdTimes = window.getHoldTimes ? window.getHoldTimes(asma) : { standard: 30, flow: 5 }; 
+                    return (holdTimes.flow || holdTimes.standard || 5); 
                 })() : null
             }, insertAt); // 👈 Pass insertion index
-
+            
             clearBuilderSelection(); // 👈 Clear checkbox
             builderRender();
         },
@@ -887,7 +893,7 @@ function builderOpen(mode, seq) {
        if (titleEl) titleEl.value = "";
        if (notesEl) notesEl.value = "";
        if (displayNotes) displayNotes.textContent = "";
-
+       
        const notesRow = document.getElementById("modalNotesRow");
        if (notesRow) notesRow.classList.add("hidden");
 
@@ -898,8 +904,8 @@ function builderOpen(mode, seq) {
        if (displayCategory) displayCategory.style.display = "none";
     } else {
        if (!seq) return;
-       if (modeLabel) modeLabel.textContent = "Sequence Review";
-       if (titleEl) titleEl.value = seq.title || "";
+       if (modeLabel) modeLabel.textContent = cloningSharedSequence ? "Personal Copy" : "Sequence Review";
+       if (titleEl) titleEl.value = cloningSharedSequence ? `${seq.title || ""} (My Copy)` : (seq.title || "");
        if (notesEl) notesEl.value = seq.condition_notes || "";
        if (displayNotes) {
            displayNotes.textContent = seq.condition_notes || "";
@@ -910,8 +916,8 @@ function builderOpen(mode, seq) {
 
        if (catSelect) {
            const isSelect = catSelect.tagName === "SELECT";
-           const exists = isSelect && catSelect.options
-               ? Array.from(catSelect.options).some(opt => opt.value === seq.category)
+           const exists = isSelect && catSelect.options 
+               ? Array.from(catSelect.options).some(opt => opt.value === seq.category) 
                : !!seq.category;
 
            if (exists && seq.category) {
@@ -934,10 +940,10 @@ function builderOpen(mode, seq) {
        }
 
        builderState.currentSubCategoryId = seq.subCategoryId || seq.sub_category_id || null;
-       builderState.currentPlaybackMode = seq.playbackMode || (seq.isFlow ? "flow" : "standard");
+       builderState.currentPlaybackMode = seq.playbackMode || (seq.isFlow ? "flow" : "standard");       
        const seqIsFlow = builderState.currentPlaybackMode === "flow";
        const libraryArray = Object.values(window.asanaLibrary || {});
-
+       
        // 🌟 JOBSian UI: Accentuated Cycle Badge
        if (displayCategory) {
            displayCategory.textContent = seq.category || "";
@@ -958,11 +964,11 @@ function builderOpen(mode, seq) {
 
        // 🌟 JSON Migration: Detect if source is native JSON
        const isNativeSource = seq.isNativeJson || (rawPoses.length > 0 && rawPoses[0][7]?.originalJson);
-
+       
        rawPoses.forEach(p => {
              const rawId = Array.isArray(p[0]) ? p[0][0] : p[0] || "";
              const idStr = String(rawId);
-
+             
              if (idStr === "LOOP_START" || idStr === "LOOP_END") {
                 builderState.poses.push({
                     id: idStr,
@@ -974,8 +980,8 @@ function builderOpen(mode, seq) {
              }
              if (idStr.startsWith("MACRO:")) {
                 const identifier = idStr.replace("MACRO:", "").trim();
-                const subCourse = window.courses?.find(c =>
-                    String(c.title || "").trim().toLowerCase() === identifier.toLowerCase() ||
+                const subCourse = window.courses?.find(c => 
+                    String(c.title || "").trim().toLowerCase() === identifier.toLowerCase() || 
                     String(c.id || "").trim() === identifier
                 );
                 const displayTitle = subCourse ? subCourse.title : identifier;
@@ -985,13 +991,13 @@ function builderOpen(mode, seq) {
 
              const id = idStr.padStart(3, '0');
              const asana = libraryArray.find(a => String(a.id) === id);
-
+             
              let rawExtras = "";
              let extractedLabel = "";
-             let variation = p[3] || "";
+             let variation = p[3] || ""; 
              let holdTier = 'standard';
              let initialProps = [...(p[7]?.props || [])];
-
+    
              if (isNativeSource && p[7]?.originalJson) {
                  rawExtras = p[7].originalJson.note || "";
                  const jsonTier = p[7].originalJson.tier;
@@ -1002,7 +1008,7 @@ function builderOpen(mode, seq) {
 
              const bracketMatch = rawExtras.match(/\[(.*?)\]/);
              if (bracketMatch) {
-                 extractedLabel = bracketMatch[1].trim();
+                 extractedLabel = bracketMatch[1].trim(); 
                  rawExtras = rawExtras.replace(bracketMatch[0], "").replace(/^[\s\|]+/, "").trim();
              } else {
                  extractedLabel = rawExtras; rawExtras = "";
@@ -1028,7 +1034,7 @@ function builderOpen(mode, seq) {
                      if (!initialProps.includes(propName)) initialProps.push(propName);
                  }
              });
-
+    
              if (!variation && asana?.variations && extractedLabel) {
                  const sortedKeys = Object.keys(asana.variations).sort((a,b) => b.length - a.length);
                  for (const vKey of sortedKeys) {
@@ -1038,17 +1044,17 @@ function builderOpen(mode, seq) {
                      }
                  }
              } else if (variation && extractedLabel === variation) {
-                 extractedLabel = "";
+                 extractedLabel = ""; 
              }
-
+    
              if (extractedLabel && !variation) {
                  rawExtras = (extractedLabel + (rawExtras ? " | " + rawExtras : "")).trim();
              }
              }
-
+    
              const holdTimes = asana ? (window.getHoldTimes ? window.getHoldTimes(asana, variation || null) : { standard: 30, flow: 5 }) : { standard: 30, flow: 5 };
              const parsedDuration = Number(p[1]) || (seqIsFlow ? (holdTimes.flow || holdTimes.standard || 5) : (holdTimes.standard || 30));
-
+             
              builderState.poses.push({
                 id: id,
                 name: asana ? (asana.name || displayName(asana)) : id,
@@ -1062,10 +1068,10 @@ function builderOpen(mode, seq) {
              });
        });
     }
-
+    
     if (typeof updateBuilderModeUI === "function") updateBuilderModeUI();
     builderRender();
-
+    
     $("editCourseBackdrop").style.display = "flex";
     setTimeout(() => { if($("builderSearch")) $("builderSearch").focus(); }, 50);
 }
@@ -1076,12 +1082,12 @@ function builderCompileSequenceText() {
         if (idStr.startsWith("MACRO:")) {
             const rounds = Math.max(1, Number(p.duration) || 1);
             return `${idStr} | ${rounds} | [Sequence Link] Linked Sequence: ${rounds} Round${rounds !== 1 ? 's' : ''}`;
-        }
+        }        
         if (idStr.startsWith("LOOP_")) return `${idStr} | ${p.duration} | [Repetition] ${p.note ? p.note : ''}`;
 
         const id = String(p.id).padStart(3, '0');
         const dur = p.duration || (isFlowSequence() ? 5 : 30);
-
+        
         // 🌟 THE AUTO-SCRUBBER
         let validatedVariation = p.variation || "";
         if (validatedVariation) {
@@ -1103,7 +1109,7 @@ function builderCompileSequenceText() {
                                       .replace(/:bandage/gi, '') // Remove existing bandage tag to re-insert cleanly
                                       .replace(/:block/gi, '')
                                       .replace(/\btier:[SL]\b/gi, '')
-                                      .replace(/\bside:[LR]\b/gi, '')
+                                      .replace(/\bside:[LR]\b/gi, '') 
                                       .replace(/\s+/g, ' ')
                                       .trim();
 
@@ -1115,13 +1121,13 @@ function builderCompileSequenceText() {
         activeProps.forEach(prop => {
             bracketContent = bracketContent ? `${bracketContent}:${prop}` : `:${prop}`;
         });
-
+        
         const varPart = bracketContent ? `[${bracketContent}]` : `[]`;
         const tierTag = (p.holdTier && p.holdTier !== 'standard') ? ` tier:${p.holdTier === 'short' ? 'S' : 'L'}` : '';
-        const sideTag = p.side ? ` side:${p.side}` : '';
-
-        const notePart = (cleanNote + tierTag + sideTag).trim();
-
+        const sideTag = p.side ? ` side:${p.side}` : ''; 
+        
+        const notePart = (cleanNote + tierTag + sideTag).trim(); 
+        
         // This creates the standard: ID | Dur | [Var:Prop] Note
         return `${id} | ${dur} | ${varPart} ${notePart}`.trim();
     }).filter(s => s.trim().length > 0).join("\n");
@@ -1130,7 +1136,7 @@ function builderCompileSequenceText() {
 function builderCompileSequenceJSON() {
     return builderState.poses.map(p => {
         const idStr = String(p.id);
-
+        
         if (idStr.startsWith("MACRO:")) {
             return {
                 type: "macro",
@@ -1151,12 +1157,12 @@ function builderCompileSequenceJSON() {
 
         // 🌟 JSON-Native Fix: Use the props array from the builder state (which contains toggle selections)
         const props = (Array.isArray(p.props) ? [...p.props] : []).filter(pr => !pr.startsWith('side:'));
-
+        
         // Also check if the user manually typed a marker in the note field during this session
         Object.keys(PROP_REGISTRY).forEach(prop => {
             if (p.note && p.note.toLowerCase().includes(`:${prop}`) && !props.includes(prop)) props.push(prop);
         });
-
+        
         let stageId = null;
         if (p.variation) {
             const asana = (window.asanaLibrary || {})[normalizePlate(p.id)];
@@ -1184,15 +1190,15 @@ function builderCompileSequenceJSON() {
 }
 
 function builderGetTitle() { return ($("builderTitle")?.value || "").trim(); }
-function builderGetNotes() {
+function builderGetNotes() { 
     const el = document.getElementById("builderNotes");
     return (el?.value || "").trim();
 }
-function builderGetCategory() {
+function builderGetCategory() { 
     const sel = document.getElementById("builderCategory");
     const custom = document.getElementById("builderCategoryCustom");
     if (sel && sel.value === "__NEW__") return (custom?.value || "").trim();
-    return (sel?.value || "").trim();
+    return (sel?.value || "").trim(); 
 }
 
 async function builderSave() {
@@ -1200,7 +1206,7 @@ async function builderSave() {
     const categoryString = builderGetCategory();
     let conditionNotes = builderGetNotes();
     const sequenceJson = builderCompileSequenceJSON();
-
+    
     if (!title) return alert("Please enter a title.");
 
     if (!conditionNotes) {
@@ -1213,30 +1219,28 @@ async function builderSave() {
         const confirmMove = confirm(`Moving sequence from "${originalSeq.category || 'Uncategorized'}" to "${categoryString}". \n\nContinue?`);
         if (!confirmMove) return;
     }
-
+    
     try {
         if (!supabase) return;
         if (!window.currentUserId) return alert("You must be signed in to save sequences.");
         if (window.isGuestMode) return alert("Guest sessions cannot save sequences.\n\nSign in with Google to keep your work.");
 
-        const payload = {
-            title,
+        const payload = { 
+            title, 
             category: categoryString, // 🌟 Pass string to persistence.js to resolve ID automatically
             condition_notes: conditionNotes,
             sequence_json: sequenceJson,
-            last_edited: new Date().toISOString(),
-            user_id: window.currentUserId
+            last_edited: new Date().toISOString(), 
+            user_id: window.currentUserId 
         };
+        
+        const { id: savedId } = await saveSequence(payload, builderState.editingSupabaseId);
 
-        if (isAdmin()) payload.is_system = true;
-
-        const { id: savedId } = await saveSequence(payload, builderState.editingSupabaseId, isAdmin());
-
-
+        
         if (savedId) builderState.editingSupabaseId = savedId;
 
-        await window.loadCourses();
-
+        await window.loadCourses(); 
+        
         // 🛡️ Ensure the new course is visible by resetting the filter
         const filterEl = document.getElementById("categoryFilter");
         if (filterEl) filterEl.value = "ALL";
@@ -1271,8 +1275,8 @@ function createRepeatGroup() {
 
     const idxs = Array.from(checkboxes).map(c => parseInt(c.dataset.idx)).sort((a,b) => a - b);
     const startIdx = idxs[0];
-    const endIdx = idxs[idxs.length - 1];
-
+    const endIdx = idxs[idxs.length - 1]; 
+    
     for (let i = startIdx; i <= endIdx; i++) {
         const idStr = String(builderState.poses[i].id);
         if (idStr.startsWith('MACRO:') || idStr.startsWith('LOOP_')) {
@@ -1291,7 +1295,7 @@ function createRepeatGroup() {
 
     // 3. Display Logic (Standardized with Link Modal)
     overlay.style.display = "flex";
-
+    
     // JOBSian FOCUS PROTOCOL: Ensure input is focused after DOM paint
     setTimeout(() => {
         input.focus();
@@ -1312,11 +1316,11 @@ function createRepeatGroup() {
         // Insert End first so Start index remains constant
         builderState.poses.splice(endIdx + 1, 0, { id: "LOOP_END", name: "🔚 End Repeat Block", duration: 0, variation: "", note: "" });
         builderState.poses.splice(startIdx, 0, { id: "LOOP_START", name: `🔁 Repeat Block (${reps} Rounds)`, duration: reps, variation: "", note: "" });
-
+        
         // 5. Cleanup & Refresh
         checkboxes.forEach(c => c.checked = false);
         builderRender();
-
+        
         // Brief delay for the alert to allow DOM to render the new rows first
         setTimeout(() => alert(`Successfully created a repetition group of ${endIdx - startIdx + 1} poses!`), 100);
     };
@@ -1329,7 +1333,7 @@ function wireBuilderGlobals() {
         btnDeleteSelected.onclick = (e) => {
             e.preventDefault();
             const checkboxes = document.querySelectorAll('.b-row-select:checked');
-
+            
             if (checkboxes.length === 0) {
                 return alert("Please check the box next to the poses you want to delete.");
             }
@@ -1339,14 +1343,14 @@ function wireBuilderGlobals() {
             }
 
             // 🌟 CRITICAL: Sort indices in descending order before removing!
-            // If we remove index 2 first, the old index 5 becomes index 4.
+            // If we remove index 2 first, the old index 5 becomes index 4. 
             // Going backwards prevents this shifting bug.
             const idxs = Array.from(checkboxes)
                 .map(c => parseInt(c.dataset.idx))
                 .sort((a, b) => b - a);
 
             idxs.forEach(idx => removePose(idx));
-
+            
             // Re-render the table to reflect deletions and uncheck all boxes
             builderRender();
         };
@@ -1365,8 +1369,8 @@ function wireBuilderGlobals() {
     if (catEdit) {
         catEdit.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                e.preventDefault();
-                catEdit.blur();
+                e.preventDefault(); 
+                catEdit.blur();     
             }
         });
     }
@@ -1378,13 +1382,13 @@ function wireBuilderGlobals() {
         rowInput.oninput = () => {
             const rawQ = rowInput.value.trim().toLowerCase();
             if (rawQ.length < 1) { rowResults.innerHTML = ""; return; }
-
+            
             const q = typeof normaliseText === 'function' ? normaliseText(rawQ) : rawQ;
             const lib = getAsanaIndex();
 
             const scoredMatches = lib.map(a => {
                 let score = 0;
-
+                
                 // 1. Normalize strings
                 const id = String(a.id || "").toLowerCase();
                 const eng = typeof normaliseText === 'function' ? normaliseText(a.english || a.name || "").toLowerCase() : (a.english || a.name || "").toLowerCase();
@@ -1397,7 +1401,7 @@ function wireBuilderGlobals() {
                 // 3. Word-Boundary Match (80-100 pts)
                 const engWords = eng.split(/[\s-]/);
                 const iastWords = iast.split(/[\s-]/);
-
+                
                 if (eng.startsWith(q) || iast.startsWith(q)) {
                     score += 100; // Exact start of the entire name (e.g. "Sirsa Padasana")
                 } else if (engWords.some(w => w.startsWith(q)) || iastWords.some(w => w.startsWith(q))) {
@@ -1417,7 +1421,7 @@ function wireBuilderGlobals() {
                 const modifierRegex = /\b(parivrtta|parsva|eka|dwi|baddha|mukta|urdhva|pinda|janu|supta|ardha|variation|ii|iii|iv|v|vi)\b/g;
                 const engModifiers = eng.match(modifierRegex) || [];
                 const iastModifiers = iast.match(modifierRegex) || [];
-
+                
                 score -= ((engModifiers.length + iastModifiers.length) * 12);
 
                 // 6. Light Length Tie-Breaker (Shorter, simpler names win ties)
@@ -1438,7 +1442,7 @@ function wireBuilderGlobals() {
             }
 
             rowResults.innerHTML = sortedMatches.map(({ asana: a }) => `
-                <div style="padding:12px; border-bottom:1px solid #eee; cursor:pointer; display:flex; gap:10px; align-items:center;"
+                <div style="padding:12px; border-bottom:1px solid #eee; cursor:pointer; display:flex; gap:10px; align-items:center;" 
                      onclick="window.selectRowSearch('${a.id}')">
                     <div style="background:#007aff; color:#fff; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.8rem; min-width:28px; text-align:center;">${a.id}</div>
                     <div style="flex:1; min-width:0;">
@@ -1458,18 +1462,18 @@ window.selectRowSearch = (id) => {
     if (builderState.activeRowSearchIdx >= 0 && builderState.poses[builderState.activeRowSearchIdx]) {
         const val = String(id).padStart(3, '0');
         const targetPose = builderState.poses[builderState.activeRowSearchIdx];
-
+        
         // 👈 THE FIX: Clear Phantom State on Search
         if (targetPose.id !== val) {
             targetPose.variation = "";
         }
 
         targetPose.id = val;
-
+        
         const libraryArray = Object.values(window.asanaLibrary || {});
         const normId = typeof normalizePlate === "function" ? normalizePlate(val) : val;
         const asanaMatch = libraryArray.find(a => String(a.id || a.asanaNo) === String(normId));
-
+        
         if (asanaMatch) {
             targetPose.name = displayName(asanaMatch);
             if (window.getHoldTimes) {
@@ -1488,9 +1492,9 @@ window.selectRowSearch = (id) => {
 window.triggerRowSearch = (e, idx) => {
     e.preventDefault();
     e.stopPropagation();
-
+    
     builderState.activeRowSearchIdx = parseInt(idx, 10);
-
+    
     const overlay = document.getElementById('rowSearchOverlay');
     const input = document.getElementById('rowSearchInput');
     const results = document.getElementById('rowSearchResults');
@@ -1507,10 +1511,10 @@ window.triggerRowSearch = (e, idx) => {
 
     // 2. State Toggle Only (Visuals delegated to components.css)
     overlay.style.display = 'flex';
-
+    
     if (input) input.value = '';
     if (results) results.innerHTML = '';
-
+    
     setTimeout(() => {
         if (input) {
             input.focus();

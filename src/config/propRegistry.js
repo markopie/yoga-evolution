@@ -64,7 +64,7 @@ Adjustment: Utilize varying block heights to maintain spinal alignment.<br>
  * Synchronizes the in-memory registry with the Supabase database.
  * Converts snake_case DB columns to the camelCase properties used in the UI.
  */
-export async function hydratePropsFromDb(supabase) {
+export async function hydratePropsFromDb(supabase, userId = window.currentUserId) {
     if (!supabase) {
         console.warn("[Props] Supabase unavailable, using hardcoded defaults.");
         return;
@@ -93,6 +93,20 @@ export async function hydratePropsFromDb(supabase) {
             bannerHtml: p.banner_html
         };
     });
+
+    if (userId) {
+        const { data: personalProps, error: personalError } = await withNetworkTimeout(
+            supabase.from('user_prop_overrides').select('prop_id, payload').eq('user_id', userId),
+        );
+        if (personalError) {
+            console.warn('[Props] Could not load profile props.', personalError);
+            return;
+        }
+        personalProps?.forEach(({ prop_id, payload }) => {
+            if (!prop_id || !payload || typeof payload !== 'object') return;
+            PROP_REGISTRY[prop_id] = { ...payload, id: prop_id };
+        });
+    }
 }
 
 // Expose to window for zero-import modules like posePlayer and audioEngine

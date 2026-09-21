@@ -42,7 +42,7 @@ function setupBrowseUI() {
     if (closeBtn && !document.getElementById("browseAddAsanaBtn")) {
         const addBtn = document.createElement("button");
         addBtn.id = "browseAddAsanaBtn";
-        addBtn.textContent = "Add Asana";
+        addBtn.textContent = "Add Asana to My Library";
         addBtn.className = "tiny";
         addBtn.style.cssText = "background: #007aff; color: white; margin-right: 8px;";
 
@@ -90,7 +90,7 @@ function setupBrowseUI() {
     if ($("browseSearch")) $("browseSearch").addEventListener("input", debounce(onChange, 120));
     if ($("browseAsanaNo")) $("browseAsanaNo").addEventListener("input", debounce(onChange, 120));
     if ($("browseCategory")) $("browseCategory").addEventListener("change", onChange);
-
+    
     // Populate category dropdown dynamically from asana library
     // Called once after library loads; also exposed on window for re-population
     window.populateBrowseCategoryDropdown = function() {
@@ -101,11 +101,11 @@ function setupBrowseUI() {
         Object.values(lib).forEach(a => {
             if (a && a.category && a.category.trim()) cats.add(a.category.trim());
         });
-
+        
         // Keep the existing first option ("All categories")
         catEl.innerHTML = '<option value="">All categories</option>';
-
-
+        
+        
         const sortedCats = Array.from(cats).sort();
         sortedCats.forEach(rawCat => {
             const displayLabel = formatCategory(rawCat);
@@ -114,7 +114,7 @@ function setupBrowseUI() {
             opt.textContent = displayLabel;
             catEl.appendChild(opt);
         });
-
+        
         if (sortedCats.length === 0) {
             const opt = document.createElement('option');
             opt.value = '__UNCAT__';
@@ -123,33 +123,33 @@ function setupBrowseUI() {
         }
     };
 
-
+    
 }
 
 
 window.openBrowse = function() {
 document.body.classList.add("modal-open");
     const bd = $("browseBackdrop");
-
+    
     if (!bd) {
         console.error("❌ ERROR: browseBackdrop not found in the HTML!");
         return;
     }
-
+    
     bd.style.display = "flex";
     bd.setAttribute("aria-hidden", "false");
-
+    
     // Populate category dropdown if not already done
     if (typeof window.populateBrowseCategoryDropdown === 'function') {
         window.populateBrowseCategoryDropdown();
     }
-
+    
     try {
-        applyBrowseFilters();
+        applyBrowseFilters(); 
     } catch (e) {
         console.error("❌ ERROR inside applyBrowseFilters:", e);
     }
-
+    
     if ($("browseSearch")) $("browseSearch").focus();
 };
 
@@ -203,16 +203,16 @@ async function showAsanaDetail(asana, highlightStageKey = null) {
     d.appendChild(titleEl);
 
     const editBtn = document.createElement("button");
-    editBtn.textContent = "✏️ Edit Asana";
+    editBtn.textContent = "✏️ Edit in My Library";
     editBtn.className = "edit-asana-btn";
     editBtn.style.cssText = "background: #2196f3; color: white; padding: 6px 12px; cursor: pointer; margin-bottom: 10px; font-weight: bold; border: none; border-radius: 6px;";
     editBtn.onclick = () => window.openAsanaEditor(asana.id || asana.asanaNo);
     d.appendChild(editBtn);
 
    // 🛑 2. DYNAMIC HOLD TIME LOGIC
-    const hj = typeof window.getHoldTimes === "function"
-        ? window.getHoldTimes(asana, highlightStageKey)
-        : (asana.hold_json || asana.holdTimes || { standard: 30, short: 15, long: 60 });
+    const hj = typeof window.getHoldTimes === "function" 
+        ? window.getHoldTimes(asana, highlightStageKey) 
+        : (asana.hold_json || asana.holdTimes || { standard: 30, short: 15, long: 60 }); 
 
     let rangeDisplay = "";
     if (hj && hj.standard) {
@@ -278,7 +278,7 @@ ${typeof formatTechniqueText === 'function' ? formatTechniqueText(baseDesc).trim
             const valB = asana.variations[b];
             const orderA = (valA && typeof valA === 'object' && valA.sort_order !== undefined) ? parseInt(valA.sort_order, 10) : 0;
             const orderB = (valB && typeof valB === 'object' && valB.sort_order !== undefined) ? parseInt(valB.sort_order, 10) : 0;
-
+            
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -286,10 +286,10 @@ ${typeof formatTechniqueText === 'function' ? formatTechniqueText(baseDesc).trim
         sortedKeys.forEach(key => {
             const val = asana.variations[key];
             let techText = '', shortText = '', titleText = `Stage ${key}`, isCustom = !!val.isCustom;
-
+            
             // Prioritize long duration from hold_json for the detail view display
-            let varHold = (val && val.hold_json)
-                ? val.hold_json.long
+            let varHold = (val && val.hold_json) 
+                ? val.hold_json.long 
                 : ((val && typeof val === 'object') ? (val.standard || val.Standard || val.hold) : '');
 
             if (typeof val === 'string') {
@@ -302,7 +302,7 @@ ${typeof formatTechniqueText === 'function' ? formatTechniqueText(baseDesc).trim
 
             const wrapper = document.createElement('div');
             wrapper.className = isCustom ? 'user-variation-block' : 'variation-block';
-            wrapper.style.cssText = isCustom
+            wrapper.style.cssText = isCustom 
                 ? 'background:#f0f7ff; padding:16px; margin-bottom:12px; border-radius:10px; border: 1px solid #0071e3;'
                 : 'background:#f5f5f7; padding:16px; margin-bottom:12px; border-radius:10px; border: 1px solid #d2d2d7;';
 
@@ -317,7 +317,7 @@ ${typeof formatTechniqueText === 'function' ? formatTechniqueText(baseDesc).trim
             wrapper.innerHTML = html;
 
             if (highlightStageKey && key === highlightStageKey) {
-                wrapper.style.border = '2px solid #ff9500';
+                wrapper.style.border = '2px solid #ff9500'; 
                 wrapper.style.background = '#fff9f0';
                 wrapper.dataset.highlighted = 'true';
             }
@@ -388,7 +388,7 @@ function applyBrowseFilters() {
     if (normQ || noQ) {
         asanaArray.forEach(a => {
             if (!a || !a.variations) return;
-
+            
             const aId = String(a.id || a.asanaNo || '').replace(/^0+/, '');
             const normalizedNoQ = noQ ? noQ.replace(/^0+/, '') : '';
 
@@ -400,12 +400,12 @@ function applyBrowseFilters() {
 
             Object.entries(a.variations).forEach(([stageKey, vData]) => {
                 if (!vData || typeof vData !== 'object') return;
-
+                
                 let matches = true;
-
+                
                 // Architect Fix: Map foreign ID strictly to parent ID
                 if (noQ && aId !== normalizedNoQ) matches = false;
-
+                
                 if (normQ && matches) {
                     const stageTitleRaw = vData.title || vData.Title || `Stage ${stageKey}`;
                     const stageShorthand = vData.shorthand || vData.Shorthand || '';
@@ -435,7 +435,7 @@ function applyBrowseFilters() {
     const allResults = [...baseResults, ...stageResults];
     const uniqueFiltered = [];
     const seen = new Set();
-
+    
     allResults.forEach(a => {
         const uniqueKey = a._uniqueKey || String(a.id || a.asanaNo || a.name || "").toLowerCase().trim();
         if (uniqueKey && !seen.has(uniqueKey)) {
@@ -447,13 +447,13 @@ function applyBrowseFilters() {
     uniqueFiltered.sort((x, y) => {
         const idX = String(x.id || x.asanaNo || "9999");
         const idY = String(y.id || y.asanaNo || "9999");
-
+        
         const cmp = idX.localeCompare(idY, undefined, { numeric: true });
         if (cmp !== 0) return cmp;
-
+        
         if (x._stageKey && !y._stageKey) return 1;
         if (!x._stageKey && y._stageKey) return -1;
-
+        
         // Architect Fix: Numeric execution of database sort_order property
         if (x._stageKey && y._stageKey) {
             if (x._sortOrder !== y._sortOrder) {
@@ -461,7 +461,7 @@ function applyBrowseFilters() {
             }
             return x._stageKey.localeCompare(y._stageKey);
         }
-
+        
         return 0;
     });
 
@@ -473,14 +473,14 @@ function applyBrowseFilters() {
 function renderBrowseList(items) {
     const list = document.getElementById("browseList");
     if (!list) return;
-
+    
     list.innerHTML = "";
     const countEl = document.getElementById("browseCount");
-
+    
     const totalCount = Object.keys(window.asanaIndex || window.asanaLibrary || {}).length;
     const stageHitCount = items.filter(a => a._sourceType === 'stage').length;
     const baseHitCount = items.length - stageHitCount;
-
+    
     if (countEl) {
         countEl.textContent = stageHitCount > 0
             ? `Showing ${baseHitCount} poses + ${stageHitCount} stages of ${totalCount} total`
@@ -493,7 +493,7 @@ function renderBrowseList(items) {
     }
 
     const frag = document.createDocumentFragment();
-
+    
     items.slice(0, 400).forEach(asma => {
        const row = document.createElement("div");
        row.className = "browse-item" + (asma._sourceType === 'stage' ? " browse-item--stage" : "");
@@ -502,19 +502,19 @@ function renderBrowseList(items) {
        }
 
        const left = document.createElement("div");
-
+       
        const title = document.createElement("div");
        title.className = "title";
        title.style.display = "flex";
        title.style.alignItems = "center";
        title.style.flexWrap = "wrap";
        title.style.gap = "6px";
-
+       
        // ── Jobsian Typographic Hierarchy Implementation ──
-       const primaryName = asma._sourceType === 'stage' && asma._stageTitle
-           ? asma._stageTitle
+       const primaryName = asma._sourceType === 'stage' && asma._stageTitle 
+           ? asma._stageTitle 
            : (asma.english || asma.devanagari || "(no name)");
-
+           
        title.innerHTML = `<span style="font-weight:700; color:#1d1d1f;">${primaryName}</span>`;
 
        if (asma._sourceType !== 'stage') {
@@ -533,7 +533,7 @@ function renderBrowseList(items) {
            parentSub.textContent = `↳ ${parentName}`;
            left.appendChild(parentSub);
        }
-
+       
        if (asma.iast) {
            const iastSub = document.createElement('div');
            iastSub.style.cssText = 'font-size:0.85rem; color:#86868b; font-style:italic; margin-top:2px;';
@@ -544,20 +544,20 @@ function renderBrowseList(items) {
        const meta = document.createElement("div");
        meta.className = "meta";
        meta.style.marginTop = "6px";
-
+       
        const catDisplay = typeof formatCategory === "function" ? formatCategory(asma.category) : asma.category;
        const catBadge = `<span class="badge">${catDisplay || 'Uncategorized'}</span>`;
 
        const stageKeyBadge = asma._sourceType === 'stage' && asma._stageKey
            ? `<span style="background:#00695c; color:#fff; border-radius:10px; padding:1px 8px; font-size:0.72rem; font-weight:700; white-space:nowrap; font-family:monospace; margin-left:6px;">Stage ${asma._stageKey}</span>`
            : '';
-
+       
        meta.innerHTML = `
          <span style="color:#000; font-weight:bold;">ID: ${asma.id || asma.asanaNo || "?"}</span>
          ${catBadge}
          ${stageKeyBadge}
        `;
-
+       
        left.appendChild(meta);
 
        const btn = document.createElement("button");
@@ -574,7 +574,7 @@ function renderBrowseList(items) {
        row.appendChild(btn);
        frag.appendChild(row);
     });
-
+    
     list.appendChild(frag);
 
     if (items.length > 400) {
