@@ -16,16 +16,6 @@ function percent(done, total) {
     return total > 0 ? Math.round((done / total) * 100) : 0;
 }
 
-function hasInstalledPrivateMedia() {
-    try {
-        const paths = JSON.parse(localStorage.getItem('yoga-offline-media-paths-v1') || '[]');
-        return Array.isArray(paths)
-            && paths.some((key) => String(key).startsWith('light-on-yoga-plates/'));
-    } catch {
-        return false;
-    }
-}
-
 export async function setupOfflineMediaUI() {
     const root = document.getElementById('offlineMediaPanel');
     if (!root) return;
@@ -35,7 +25,6 @@ export async function setupOfflineMediaUI() {
     const downloadButton = root.querySelector('[data-offline-download]');
     const cancelButton = root.querySelector('[data-offline-cancel]');
     const removeButton = root.querySelector('[data-offline-remove]');
-    const removePrivateButton = root.querySelector('[data-offline-remove-private]');
     let controller = null;
 
     async function render() {
@@ -60,13 +49,12 @@ export async function setupOfflineMediaUI() {
                 `${formatBytes(state.storageQuota)} browser quota`
             : 'Browser storage quota unavailable';
         const required = state.requiredBytes || state.pack?.totalBytes || 0;
-        const packSize = required ? `Pack requires ${formatBytes(required)}` : 'Sign in to calculate pack size';
+        const packSize = required ? `Pack size ${formatBytes(required)}` : 'Pack size unavailable';
         detail.textContent = `${navigator.onLine ? 'Connected' : 'Offline'} · ${packSize} · ${quota}`;
         progress.value = state.pack?.completedCount || 0;
         progress.max = state.pack?.totalCount || 1;
         downloadButton.textContent = installed ? 'Check for updates' : 'Download all media';
         removeButton.disabled = state.installedCount === 0;
-        removePrivateButton.disabled = !hasInstalledPrivateMedia();
     }
 
     downloadButton.addEventListener('click', async () => {
@@ -102,11 +90,6 @@ export async function setupOfflineMediaUI() {
     removeButton.addEventListener('click', async () => {
         if (!window.confirm('Remove all downloaded offline media from this device?')) return;
         await removeOfflineMedia();
-        await render();
-    });
-    removePrivateButton.addEventListener('click', async () => {
-        if (!window.confirm('Remove private Light on Yoga plates from this device?')) return;
-        await removeOfflineMedia({ privateOnly: true });
         await render();
     });
     window.addEventListener('online', render);

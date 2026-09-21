@@ -115,17 +115,13 @@
           <div class="offline-media-panel__body">
              <progress value="0" max="1" aria-label="Offline media download progress"></progress>
              <div class="offline-media-panel__detail" data-offline-detail>Checking browser storage…</div>
-             <div id="offlineSyncDetail" class="offline-media-panel__detail">Progress is synchronized.</div>
              <div class="offline-media-panel__actions">
                 <button type="button" data-offline-download>Download all media</button>
-                <button id="retryProgressSyncBtn" type="button" class="secondary">Retry progress sync</button>
                 <button type="button" class="secondary" data-offline-cancel hidden>Pause</button>
                 <button type="button" class="secondary" data-offline-remove>Remove all</button>
-                <button type="button" class="secondary" data-offline-remove-private>Remove private plates</button>
              </div>
              <p class="offline-media-panel__note">
-                Downloads are verified and kept separate from app updates. Browser storage can still be cleared by Android.
-                Referenced plates 604–615 are unavailable and are excluded from this pack.
+                Downloads are kept separate from app updates. Browser storage may still be cleared by your device.
              </p>
           </div>
           </section>
@@ -143,16 +139,9 @@
           <section id="installationGuidePanel" class="settings-section" aria-labelledby="installationGuideTitle">
              <h2 id="installationGuideTitle">Install on iPhone</h2>
              <ol class="installation-steps">
-                <li>Install Tailscale from the App Store and sign in with the approved user’s own account.</li>
-                <li>Allow the VPN configuration and confirm the iPhone appears under Machines.</li>
-                <li>Open the canonical HTTPS Yoga address in Safari, then use Share → Add to Home Screen.</li>
+                <li>Open Yoga Evolution in Safari.</li>
+                <li>Choose Share → Add to Home Screen.</li>
              </ol>
-             <p>PC Ethernet and phone Wi-Fi are compatible when both devices show connected in Tailscale.</p>
-             <details>
-                <summary>Troubleshooting</summary>
-                <p>If the machine is missing, check the selected tailnet and enable the Tailscale VPN. For an <code>authstate2</code> cookie error, close the stale browser page and restart sign-in from the Tailscale app.</p>
-             </details>
-             <dl id="appDiagnostics" class="app-diagnostics"></dl>
           </section>
        </details>
 
