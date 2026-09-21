@@ -1,0 +1,385 @@
+// src/playback/audioEngine.js
+
+import { AUDIO_BASE, BRIDGE_SKIP_PROBABILITY } from "../config/appConfig.js";
+import { normalizePlate } from "../services/dataAdapter.js";
+import {
+    normalizePlaybackSide,
+    requiresBilateralSides,
+    sideCueSpeech,
+} from "./sideCueUtils.js";
+
+// ── Module-level audio state ────────────────────────────────────────────────
+let currentAudio = null;
+let audioCtx     = null;
+
+/**
+ * Safely joins a base URL and a filename, preventing double slashes.
+ */
+function joinPath(base, file) {
+    if (!file) return null;
+    if (String(file).startsWith("http")) return file;
+    const b = base.endsWith("/") ? base : base + "/";
+    const f = String(file).startsWith("/") ? String(file).substring(1) : file;
+    return b + f;
+}
+
+/**
+ * Plays a fresh side cue file for each pose. Fresh elements avoid stale mobile
+ * audio state after a service-worker update or an offline-pack refresh.
+ * Speech synthesis remains a last-resort audible fallback.
+ */
+function playSideCueFile(side) {
+    const normalizedSide = normalizePlaybackSide(side);
+    if (!normalizedSide) return Promise.resolve();
+
+    return new Promise((resolve) => {
+        let settled = false;
+        let fallbackStarted = false;
+        let timeoutId = null;
+
+        const finish = () => {
+            if (settled) return;
+            settled = true;
+            if (timeoutId) clearTimeout(timeoutId);
+            resolve();
+        };
+
+        const speakFallback = () => {
+            if (settled || fallbackStarted) return;
+            fallbackStarted = true;
+            console.warn(`[AudioEngine] Using speech fallback for ${normalizedSide} side cue.`);
+            speakText(sideCueSpeech(normalizedSide)).then(finish);
+        };
+
+        try {
+            const a = new Audio(joinPath(AUDIO_BASE, `${normalizedSide}_side.mp3`));
+            a.preload = "auto";
+            a.onended = finish;
+            a.onerror = speakFallback;
+            setCurrentAudio(a);
+
+            // A stalled media element does not always emit an error on Android.
+            timeoutId = setTimeout(speakFallback, 8000);
+            a.play().catch(error => {
+                console.warn(`[AudioEngine] Side cue play failed (${normalizedSide}):`, error);
+                speakFallback();
+            });
+        } catch (error) {
+            console.warn(`[AudioEngine] Could not create ${normalizedSide} side cue:`, error);
+            speakFallback();
+        }
+    });
+}
+
+// ── Exports ───────────────────────────────────────────────────────────────────
+export function getCurrentAudio() { return currentAudio; }
+export function setCurrentAudio(audio) { currentAudio = audio; }
+
+// ── Faint gong (Oscillator) ──────────────────────────────────────────────────
+export function playFaintGong() {
+    try {
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) return;
+        if (!audioCtx) audioCtx = new Ctx();
+        const t0 = audioCtx.currentTime + 0.02;
+
+        const o1 = audioCtx.createOscillator();
+        const o2 = audioCtx.createOscillator();
+        const g  = audioCtx.createGain();
+
+        o1.type = "sine"; o2.type = "sine";
+        o1.frequency.setValueAtTime(432, t0);
+        o2.frequency.setValueAtTime(864, t0);
+
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(0.07, t0 + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.8);
+
+        o1.connect(g); o2.connect(g); g.connect(audioCtx.destination);
+        o1.start(t0); o2.start(t0);
+        o1.stop(t0 + 2.0); o2.stop(t0 + 2.0);
+    } catch (e) {}
+}
+
+// ── Side detection (label-based, for non-requires_sides poses) ───────────────
+export function detectSide(poseLabel) {
+    if (!poseLabel) return null;
+    const label = poseLabel.toLowerCase();
+    if (label.includes("(right)") || label.includes("right side")) return "right";
+    if (label.includes("(left)")  || label.includes("left side"))  return "left";
+    return null;
+}
+
+export function playSideCue(side) {
+    if (!side) return;
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = side === "right" ? 800 : 600;
+        osc.type = "sine";
+        gain.gain.setValueAtTime(0.3, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.3);
+    } catch (e) {}
+}
+
+// ── System & Boundary Audio (Macros / Loops) ─────────────────────────────────
+
+export function playSystemAudio(fileName) {
+    return new Promise((resolve) => {
+        if (!fileName) return resolve();
+
+        let finalFile = fileName;
+        if (fileName.startsWith('macro_start_')) {
+            const allFiles = window.serverAudioFiles || [];
+            if (!allFiles.includes(`${fileName}.mp3`)) {
+                finalFile = 'macro_start';
+            }
+        }
+
+        if (currentAudio) {
+            try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (e) {}
+        }
+
+        const src = `${AUDIO_BASE}${finalFile}.mp3`;
+        const a = new Audio(src);
+        currentAudio = a;
+
+        a.onended = resolve;
+        a.onerror = () => {
+            console.warn(`[AudioEngine] System audio failed/missing: ${src}`);
+            resolve();
+        };
+
+        a.play().catch(() => resolve());
+    });
+}
+
+export function speakRound(roundNum) {
+    return speakText(`Round ${roundNum}`);
+}
+
+export function speakText(text) {
+    return new Promise((resolve) => {
+        if (!('speechSynthesis' in window) || !text) return resolve();
+
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.9;
+        utterance.pitch = 1.1;
+        utterance.volume = 0.7;
+
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+            const femaleVoice = voices.find(v => {
+                const name = v.name.toLowerCase();
+                return name.includes('female') ||
+                       ['samantha', 'victoria', 'karen', 'tessa', 'moira', 'matilda'].some(n => name.includes(n));
+            });
+            if (femaleVoice) {
+                utterance.voice = femaleVoice;
+            }
+        }
+
+        utterance.onend = resolve;
+        utterance.onerror = resolve;
+
+        setTimeout(() => window.speechSynthesis.speak(utterance), 100);
+    });
+}
+
+export function toggleSpeak(text, btn) {
+    if (window.speechSynthesis.speaking && btn.dataset.speaking === "true") {
+        window.speechSynthesis.cancel();
+        return;
+    }
+
+    document.querySelectorAll('.audio-control__btn--speaking').forEach(b => {
+        if (b.dataset.originalLabel) b.innerHTML = b.dataset.originalLabel;
+        b.dataset.speaking = "false";
+        b.classList.remove('audio-control__btn--speaking');
+    });
+
+    btn.dataset.originalLabel = btn.innerHTML;
+    btn.innerHTML = "⏹ Stop";
+    btn.dataset.speaking = "true";
+    btn.classList.add('audio-control__btn--speaking');
+
+    speakText(text).then(() => {
+        btn.innerHTML = btn.dataset.originalLabel;
+        btn.dataset.speaking = "false";
+        btn.classList.remove('audio-control__btn--speaking');
+    });
+}
+
+// ── Main orchestrator ─────────────────────────────────────────────────────────
+
+/**
+ * Top-level async orchestrator.
+ * Sequentially awaits the asana audio and then the side cue.
+ */
+export async function playAsanaAudio(
+    asana,
+    poseLabel = null,
+    isBrowseContext = false,
+    currentSide = null,
+    variationKey = null,
+    isSecondSide = false,
+    props = [],
+    note = ""
+) {
+    if (!asana) return;
+
+    // Prop modifier normalization
+    const activeProps = (Array.isArray(props) && props.length > 0)
+        ? props
+        : (props && !Array.isArray(props) ? [props] : (Array.isArray(window.currentPropModifier) ? window.currentPropModifier : []));
+
+    if (currentAudio) {
+        try { currentAudio.pause(); currentAudio.currentTime = 0; } catch (e) {}
+        currentAudio = null;
+    }
+
+    // 1. Await the Main Asana Audio & Bridge Files
+    await playPoseMainAudio(asana, poseLabel, null, variationKey);
+
+    // 2. Play Verbal Prop Cues (Queued)
+    const registry = window.PROP_REGISTRY || {};
+    for (const pId of activeProps) {
+        if (registry[pId]) {
+            await new Promise(resolve => setTimeout(resolve, 250));
+            await speakText(registry[pId].audioCue);
+        }
+    }
+
+    // 3. Await Side Cue if required
+    const requiresSides = requiresBilateralSides(asana);
+    const playbackSide = normalizePlaybackSide(currentSide, isSecondSide);
+
+    if (!isBrowseContext && requiresSides && playbackSide) {
+        await playSideCueFile(playbackSide);
+    }
+
+    // 4. Speak Pose Note (Last)
+    if (note && note.trim()) {
+        await new Promise(resolve => setTimeout(resolve, 400)); // Slightly longer pause for clarity
+        await speakText(note.trim());
+    }
+}
+
+/**
+ * Core audio logic for asanas. Now returns a Promise.
+ */
+export function playPoseMainAudio(asana, poseLabel = null, onComplete = null, variationKey = null) {
+    return new Promise((resolve) => {
+        const handleComplete = () => {
+            if (onComplete) onComplete();
+            resolve();
+        };
+
+        if (poseLabel && !requiresBilateralSides(asana)) {
+            const side = detectSide(poseLabel);
+            if (side) setTimeout(() => playSideCue(side), 100);
+        }
+
+        const playSrcInQueue = (src, nextStep) => {
+            if (!src) { if (nextStep) nextStep(); return; }
+            const a = new Audio(src);
+            a.onended = nextStep;
+            a.onerror = nextStep;
+            a.play()
+                .then(() => { setCurrentAudio(a); })
+                .catch(e => {
+                    console.warn(`[AudioEngine] Audio play failed: ${src}`, e);
+                    nextStep();
+                });
+        };
+
+        // Resolve variation audio: prioritize mapped 'audio' (from audio_url)
+        let varAudio = null;
+        let varSpeakText = null;
+        if (variationKey && asana.variations && asana.variations[variationKey]) {
+            const v = asana.variations[variationKey];
+            const rawVarAudio = v.audio || v.audio_url || null;
+            if (rawVarAudio) {
+                varAudio = joinPath(AUDIO_BASE, rawVarAudio);
+            } else {
+                // Fallback: speak the variation's title if no audio_url exists
+                varSpeakText = v.title || variationKey;
+            }
+        }
+
+        const step3_Variation = () => {
+            if (varAudio) {
+                playSrcInQueue(varAudio, handleComplete);
+            } else if (varSpeakText) {
+                speakText(varSpeakText).then(handleComplete);
+            } else {
+                handleComplete();
+            }
+        };
+
+        const step2_Bridge = () => {
+            if (!varAudio) {
+                // No variation audio file — skip bridge, go straight to speak fallback
+                step3_Variation();
+                return;
+            }
+            if (Math.random() < BRIDGE_SKIP_PROBABILITY) {
+                step3_Variation();
+                return;
+            }
+            const allFiles   = window.serverAudioFiles || [];
+            const bridges    = ["bridge_stage.mp3", "bridge_stage_2.mp3", "bridge_stage_3.mp3"]
+                                .filter(f => allFiles.includes(f) || f === "bridge_stage.mp3");
+            const bridgeFile = bridges[Math.floor(Math.random() * bridges.length)];
+            playSrcInQueue(joinPath(AUDIO_BASE, bridgeFile), step3_Variation);
+        };
+
+        const step1_Main = () => {
+            let src = asana.audio;
+            let fallbackText = null;
+            if (!src) {
+                // ARCHITECT CONTRACT: Strict schema mapping
+                const idStr   = normalizePlate(asana.id);
+                const fileList = window.serverAudioFiles || [];
+                const match   = fileList.find(f => f.startsWith(`${idStr}_`) || f === `${idStr}.mp3`);
+
+                if (match) {
+                    src = joinPath(AUDIO_BASE, match);
+                } else if (idStr) {
+                    const cleanName = (asana.english_name || asana.name || "").replace(/[^a-zA-Z0-9]/g, "");
+                    src = joinPath(AUDIO_BASE, `${idStr}_${cleanName}.mp3`);
+                }
+
+                // If still no src, prepare fallback text from asana name
+                if (!src) {
+                    fallbackText = asana.english_name || asana.name || "";
+                }
+            }
+            if (src) {
+                playSrcInQueue(src, step2_Bridge);
+            } else if (fallbackText) {
+                speakText(fallbackText).then(step2_Bridge);
+            } else {
+                step2_Bridge();
+            }
+        };
+
+        step1_Main();
+    });
+}
+
+// Global bindings
+window.playAsanaAudio    = playAsanaAudio;
+window.playFaintGong     = playFaintGong;
+window.playPoseMainAudio = playPoseMainAudio;
+window.getCurrentAudio   = getCurrentAudio;
+window.playSystemAudio   = playSystemAudio;
+window.speakRound        = speakRound;
+window.speakText         = speakText;
+window.toggleSpeak       = toggleSpeak;

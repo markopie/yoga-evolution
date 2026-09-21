@@ -1,0 +1,59 @@
+.env
+supabase/.temp/
+backups/
+reports/storage/
+docs/schemas/supabase_schema.json
+assets/
+*.local
+node_modules/
+dist/
+build/
+coverage/
+.vite/
+playwright-report/
+test-results/
+blob-report/
+.runtime/
+reports/generated/*
+!reports/generated/curriculum-pacing-foundation/
+!reports/generated/curriculum-pacing-foundation/**
+!reports/generated/integrated-curriculum-v4/
+!reports/generated/integrated-curriculum-v4/**
+!reports/generated/integrated-curriculum-v3-repair/
+reports/generated/integrated-curriculum-v3-repair/*
+!reports/generated/integrated-curriculum-v3-repair/*.md
+!reports/generated/integrated-curriculum-v3-repair/curriculum.csv
+docs/asana.md
+docs/stages.md
+# Python / local env
+.venv/
+__pycache__/
+*/__pycache__/
+
+# Editor
+.vscode/
+
+# Local credentials
+google-credentials.json
+credentials.json
+token.json
+
+# Local/script cache
+scripts/**/__pycache__/
+
+# Local script archive
+scripts/archive/
+
+data/courses_raw.json
+
+supabase/.temp/
+
+# Local encoding safety backups
+*.encoding-backup-*
+
+# Separately managed curriculum and research material
+data/
+docs/sources/
+docs/curriculum-pacing/
+reports/generated/
+supabase/seed.local.sql

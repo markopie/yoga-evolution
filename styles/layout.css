@@ -1,0 +1,133 @@
+/* ==========================================================================
+   LAYOUT & MODAL SKELETON
+   ========================================================================== */
+
+/* --- 1. Main App Skeleton --- */
+header {
+    padding: max(14px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) 14px max(18px, env(safe-area-inset-left));
+    background: var(--color-bg-surface);
+    border-bottom: 1px solid var(--color-border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+header .row {
+    flex-wrap: wrap;
+}
+
+button, summary, input, select, textarea { touch-action: manipulation; }
+
+button:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--color-primary, #007aff) 55%, transparent);
+    outline-offset: 2px;
+}
+
+main {
+    padding: 18px;
+    max-width: 1100px;
+    margin: 0 auto;
+}
+
+#mainAppContainer {
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* --- 2. Global Modal Framework --- */
+.modal-backdrop {
+    position: fixed;
+    inset: 0; /* ARCHITECT NOTE: Excellent modern shorthand. */
+    background: rgba(0, 0, 0, 0.5);
+    display: none; /* Controlled via JS */
+    align-items: center;
+    justify-content: center;
+    z-index: var(--z-modal-backdrop, 2000); /* Hooked to dictionary with fallback */
+    padding: max(5mm, env(safe-area-inset-top)) max(5mm, env(safe-area-inset-right)) max(5mm, env(safe-area-inset-bottom)) max(5mm, env(safe-area-inset-left));
+    box-sizing: border-box;
+}
+
+/* Failsafe to guarantee JS inline overrides win without JS !important tags */
+.modal-backdrop[style*="display: flex"] {
+    display: flex !important;
+}
+
+/* --- 2b. Nested/Secondary Modal Tier --- */
+/* Forces search windows and sub-editors to ALWAYS float above the primary editor */
+#rowSearchOverlay,
+#linkSequenceOverlay,
+#repetitionModalOverlay,
+#asanaEditorBackdrop {
+    z-index: var(--z-modal-secondary, 3000) !important;
+}
+
+.modal {
+    width: 100%;
+    max-width: 1200px;
+    height: 90vh;
+    background: var(--color-bg-surface);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    flex-shrink: 0;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--color-bg-surface);
+}
+
+.modal-body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.modal-footer {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding: 15px 20px;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg-main);
+    flex-wrap: wrap;
+}
+
+/* --- 3. Scroll Locking Mechanics --- */
+body.modal-open {
+    overflow: hidden;
+    height: 100vh;
+}
+
+body:not(.modal-open) {
+    overflow: auto !important;
+    height: auto !important;
+}
+
+@media (max-width: 720px) {
+    header { position: relative; }
+    .modal-backdrop { padding: 0; align-items: stretch; }
+    .modal { width: 100vw; max-width: none; height: 100dvh; max-height: 100dvh; border-radius: 0; }
+    .modal-header {
+        padding-top: max(12px, env(safe-area-inset-top));
+        padding-right: max(16px, env(safe-area-inset-right));
+        padding-left: max(16px, env(safe-area-inset-left));
+    }
+    .modal-footer {
+        padding-right: max(16px, env(safe-area-inset-right));
+        padding-bottom: max(15px, env(safe-area-inset-bottom));
+        padding-left: max(16px, env(safe-area-inset-left));
+    }
+}

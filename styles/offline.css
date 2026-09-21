@@ -1,0 +1,150 @@
+.offline-media-panel {
+    padding: 14px;
+}
+
+.offline-media-panel__heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+}
+
+.offline-media-panel__heading h2 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.offline-media-panel__status {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #6a6a6a;
+}
+
+.offline-media-panel__status[data-state="ready"] {
+    color: #0f7869;
+}
+
+.offline-media-panel__body {
+    padding-top: 12px;
+}
+
+.offline-media-panel__body progress {
+    width: 100%;
+    height: 10px;
+    accent-color: #0f7869;
+}
+
+.offline-media-panel__detail {
+    margin: 7px 0 12px;
+    color: #666;
+    font-size: 0.82rem;
+}
+
+.offline-media-panel__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.offline-media-panel__actions button {
+    min-height: 38px;
+}
+
+.offline-media-panel__note {
+    margin: 12px 0 0;
+    font-size: 0.76rem;
+    color: #777;
+}
+
+.app-settings-panel {
+    margin-top: 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-bg-surface);
+}
+
+.app-settings-panel > summary {
+    min-height: 44px;
+    padding: 10px 14px;
+    box-sizing: border-box;
+    cursor: pointer;
+    font-weight: 650;
+}
+
+.settings-section {
+    padding: 14px;
+    border-top: 1px solid var(--color-border);
+}
+
+.settings-section h2 { margin: 0 0 12px; font-size: 1rem; }
+.settings-section h3 { margin: 14px 0 8px; font-size: .9rem; }
+
+.settings-form {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(140px, 1fr)) auto;
+    gap: 8px;
+    align-items: start;
+}
+
+.settings-form input,
+.settings-form button,
+.settings-actions button { min-height: 44px; }
+
+.settings-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.settings-message { min-height: 1.3em; margin-top: 8px; font-size: .85rem; color: #176b4d; }
+.settings-message[data-error="true"] { color: #a5231c; }
+.security-factor-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--color-border); }
+.recovery-request-card { padding: 10px 0; border-bottom: 1px solid var(--color-border); }
+.recovery-request-card p { margin: 5px 0; font-size: .82rem; }
+.recovery-request-card label { display: block; margin: 8px 0; }
+.recovery-code-output { display: flex; flex-direction: column; gap: 7px; margin-top: 12px; padding: 12px; border-radius: 8px; background: #fff7d6; color: #5c4500; font-weight: 650; overflow-wrap: anywhere; white-space: normal; user-select: text; }
+.recovery-code-output[hidden] { display: none !important; }
+.recovery-code-output button { align-self: flex-start; min-height: 38px; }
+.installation-steps { padding-left: 1.25rem; }
+.installation-steps li { margin-bottom: 8px; }
+.app-diagnostics { display: grid; grid-template-columns: max-content 1fr; gap: 5px 12px; margin: 14px 0 0; font-size: .8rem; }
+.app-diagnostics dt { font-weight: 650; }
+.app-diagnostics dd { margin: 0; overflow-wrap: anywhere; }
+
+.sync-status-pill {
+    min-height: 36px;
+    margin-right: 8px;
+    padding: 6px 10px;
+    border: 1px solid #d2d2d7;
+    border-radius: 999px;
+    background: #f5f5f7;
+    color: #424245;
+    font-size: .75rem;
+    white-space: nowrap;
+}
+
+.sync-status-pill[data-state="needs_attention"] { color: #9f1c15; border-color: #e6aaa6; background: #fff2f1; }
+.sync-status-pill[data-state="offline"] { color: #6b4d00; border-color: #e5cc84; background: #fff9e8; }
+
+.sync-status-toast {
+    position: fixed;
+    left: 50%;
+    bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px));
+    z-index: 12000;
+    transform: translate(-50%, 12px);
+    opacity: 0;
+    padding: 10px 15px;
+    border-radius: 999px;
+    background: #1d1d1f;
+    color: #fff;
+    font-size: .85rem;
+    transition: opacity .2s ease, transform .2s ease;
+    pointer-events: none;
+}
+
+.sync-status-toast--visible { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 600px) {
+    .sync-status-pill { max-width: 38vw; overflow: hidden; text-overflow: ellipsis; }
+    .offline-media-panel__actions { display: grid; grid-template-columns: 1fr; }
+    .offline-media-panel__actions button { min-height: 44px; }
+    .settings-form { grid-template-columns: 1fr; }
+    .settings-actions { display: grid; grid-template-columns: 1fr; }
+    .app-diagnostics { grid-template-columns: 1fr; }
+    .app-diagnostics dd { margin-bottom: 6px; }
+}

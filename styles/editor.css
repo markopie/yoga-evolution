@@ -1,0 +1,870 @@
+/* styles/editor.css */
+/* ==========================================================================
+   SEQUENCE BUILDER & EDITOR ISOLATION
+   ========================================================================== */
+
+/* --- 1. Base Builder Table Layout (STRICT STRUCTURE) --- */
+#builderTable {
+    width: 100% !important;
+    table-layout: auto !important;
+    border-collapse: collapse;
+}
+
+#builderTable thead {
+    border-bottom: 2px solid #d2d2d7; /* Ensures labels get a clear gridline separator */
+    background: #fbfbfd;
+}
+
+#builderTable th {
+    box-shadow: inset 0 1px 0 #d2d2d7; /* Persistent gridline above labels that survives scrolling */
+    vertical-align: middle;
+    padding-top: 12px !important;
+    padding-bottom: 12px !important;
+    background: #fbfbfd;
+}
+
+/* Col 1: Fixed Width for Checkbox & ID */
+#builderTable th:nth-child(1), #builderTable td:nth-child(1) {
+    width: 100px !important;
+    min-width: 100px !important;
+    text-align: center;
+}
+
+/* Col 2: Flexible but not greedy */
+#builderTable td:nth-child(2) {
+    width: auto;
+    vertical-align: middle;
+    word-wrap: break-word;
+    padding-right: 15px;
+}
+
+#builderTable td:nth-child(2) {
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+    padding-right: 10px;
+    max-width: 300px !important; /* Prevents it from getting too wide */
+    overflow: hidden;
+}
+
+/* --- THE BLUE DROPDOWN (Inside Col 2) --- */
+.b-var {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 4px !important;
+    border: 1px solid #1976d2;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    background: #e3f2fd;
+    color: #005580;
+    max-width: 160px; /* Prevents the 'Sponge' from getting too wide */
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+    vertical-align: middle;
+    min-height: 0 !important;
+    height: 24px !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    box-sizing: border-box !important;
+    width: auto !important;
+}
+
+/* Col 3, 4, 5: UI Elements (Shrink-wrap tightly around buttons) */
+#builderTable th:nth-child(n+3), #builderTable td:nth-child(n+3) {
+    width: auto !important;
+    white-space: nowrap !important;
+    padding: 8px 12px;
+}
+
+/* Info Cell (Col 3) internal styling */
+.builder-info-cell {
+    min-width: 170px !important; /* Adjusted to fit S/STD/L buttons comfortably */
+    padding: 8px 10px;
+}
+.builder-info-th,
+#builderTable td:nth-child(3) {
+    width: 170px !important;
+    min-width: 170px !important;
+    padding: 10px 4px !important;
+    text-align: center !important;
+}
+
+/* Col 4 (Order) & Col 5 (Action) */
+#builderTable th:nth-child(4), #builderTable td:nth-child(4) {
+    width: 200px !important; /* Increased to ensure 4 buttons stay on one row */
+    min-width: 200px !important;
+    text-align: center !important;
+    padding-right: 0 !important;
+}
+
+#builderTable td:nth-child(5) {
+    min-width: 90px !important;
+    text-align: right;
+    padding-right: 10px !important;
+}
+
+
+/* --- TIER BUTTONS (Inside Col 3) --- */
+.b-tier-group { display: flex; gap: 1px; margin-bottom: 4px; }
+
+.b-tier {
+    border: 1px solid #d2d2d7;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    min-width: 32px;
+    background: #f5f5f7;
+    color: #555;
+    transition: all 0.2s ease;
+}
+
+.b-tier[data-active="true"] {
+    background: #1976d2 !important;
+    color: #fff !important;
+    border-color: #1976d2 !important;
+    font-weight: 700;
+}
+
+.b-tier-sec { font-size: 0.62rem; margin-top: 1px; }
+
+
+/* --- 2. Builder View Mode (Jobbsian Aesthetic) --- */
+.builder-view-mode .builder-tools-panel,
+.builder-view-mode .builder-toolbar-primary {
+    display: none !important;
+}
+
+.builder-view-mode .b-move-top,
+.builder-view-mode .b-move-bot,
+.builder-view-mode .b-move-up,
+.builder-view-mode .b-move-dn,
+.builder-view-mode .b-remove,
+.builder-view-mode .b-row-select,
+.builder-view-mode .b-row-search-btn {
+    display: none !important;
+}
+
+.builder-view-mode input.b-id,
+.builder-view-mode input.b-dur,
+.builder-view-mode select.b-var {
+    border: none !important;
+    background: transparent !important;
+    pointer-events: none !important;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    color: inherit;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Note Toggling Logic */
+.view-only-inline { display: none !important; }
+
+.builder-view-mode .view-only-inline {
+    display: inline-block !important;
+}
+
+.builder-view-mode .b-pose-note {
+    display: none !important;
+}
+
+/* Hide entire note area in View/PDF if the text content is empty */
+.builder-view-mode .pose-note-wrapper:has(.b-pose-note-view:empty) {
+    display: none !important;
+}
+
+.builder-view-mode .b-pose-note::placeholder {
+    color: transparent;
+}
+
+/* Hide checkbox in view mode */
+.builder-view-mode td:first-child input[type="checkbox"] {
+    display: none !important;
+}
+
+/* View Mode Table Fixes */
+.builder-view-mode #builderTable {
+    table-layout: auto !important;
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.builder-view-mode th:nth-child(1),
+.builder-view-mode td:nth-child(1) {
+    width: 22% !important;
+    min-width: 85px !important;
+    text-align: center;
+    border-left: 1px solid var(--color-border) !important;
+    border-right: 1px solid var(--color-border) !important;
+}
+
+.builder-view-mode th:nth-child(2),
+.builder-view-mode td:nth-child(2) {
+    width: 48% !important;
+}
+
+.builder-view-mode th:nth-child(3),
+.builder-view-mode td:nth-child(3) {
+    width: 20% !important;
+    min-width: 160px !important;
+    text-align: left !important;
+    padding-left: 15px !important;
+    border-right: 1px solid var(--color-border) !important;
+}
+
+/* Hide action columns in view mode */
+.builder-view-mode th:nth-child(n+4),
+.builder-view-mode td:nth-child(n+4) {
+    display: none !important;
+}
+
+/* Ensure the bottom of the table grid is closed */
+.builder-view-mode #builderTable {
+    border-bottom: 1px solid var(--color-border);
+}
+
+.builder-view-mode .modal {
+    display: flex;
+    flex-direction: column;
+    height: 95dvh !important;
+    max-height: 95dvh;
+    margin: 10px auto;
+}
+
+.builder-view-mode .modal-body {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 80px !important; /* Provides scroll-past space without introducing grid artifacts */
+    max-height: none !important;
+}
+
+/* FREEZE TABLE INTERACTIONS IN VIEW MODE */
+.builder-view-mode input,
+.builder-view-mode select,
+.builder-view-mode .b-tier:not([data-active="true"]) {
+    pointer-events: none !important;
+}
+/* Keep Prop Pills and scroll active */
+.builder-view-mode .b-prop-pill {
+    pointer-events: auto !important;
+}
+
+.builder-view-mode .b-tier {
+    opacity: 0.7;
+    filter: grayscale(0.5);
+}
+
+.b-var-view { display: none; }
+.builder-view-mode .b-var-view {
+    display: inline-block !important;
+    color: #007aff;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.builder-view-mode .edit-only-inline { display: none !important; }
+.builder-view-mode .b-var-edit { display: none !important; }
+
+/* VIEW MODE LOCKDOWNS FOR INPUTS */
+.builder-view-mode input.jobbsian-input { pointer-events: none !important; }
+.builder-view-mode input.jobbsian-category:placeholder-shown { display: none !important; }
+
+
+/* --- 3. Seamless Typography Inputs (Unified Formatting) --- */
+.jobbsian-title {
+    font-size: 1.6rem !important;
+    font-weight: 700 !important;
+    color: #1d1d1f !important;
+    line-height: 1.2 !important;
+    letter-spacing: -0.02em !important;
+    width: 100% !important;
+    padding: 6px 8px !important;
+    margin-left: -8px !important;
+    background: transparent !important;
+    border: 2px solid transparent !important;
+    border-radius: 8px !important;
+    outline: none !important;
+    transition: all 0.2s ease;
+}
+
+.jobbsian-category {
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    color: #005580 !important;
+    background: #e3f2fd !important;
+    padding: 6px 12px !important;
+    border-radius: 12px !important;
+    border: 2px solid transparent !important;
+    text-overflow: ellipsis;
+    outline: none !important;
+    transition: all 0.2s ease;
+}
+
+.jobbsian-title:hover:not(:disabled) { background: #f5f5f7 !important; }
+.jobbsian-title:focus { background: #fff !important; border-color: #007aff !important; box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15) !important; }
+.jobbsian-category:hover:not(:disabled) { background: #cce4f7 !important; }
+.jobbsian-category:focus { background: #fff !important; border-color: #007aff !important; box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.15) !important; color: #1d1d1f !important; }
+
+.builder-view-mode .jobbsian-title,
+.builder-view-mode .jobbsian-category {
+    pointer-events: none !important;
+}
+
+/* --- 3a. Builder Header & Notes Layout --- */
+#editModeHeader, #viewModeHeader {
+    display: flex;
+    flex-wrap: wrap; /* Ensures notes drop to new line and take full width */
+    align-items: flex-start;
+    gap: 12px;
+    flex: 1 1 0%;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.hidden {
+    display: none !important;
+}
+
+#builderNotes {
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid #d2d2d7;
+    font-size: 0.9rem;
+    height: 90px;
+    resize: vertical;
+    background: #fff;
+    font-family: inherit;
+    box-sizing: border-box;
+    line-height: 1.4;
+}
+
+.btn-builder-mode-edit {
+    background: #f5f5f7;
+    color: #1d1d1f;
+    border: 1px solid #d2d2d7;
+    border-radius: 8px;
+}
+
+.btn-builder-mode-view {
+    background: #007aff;
+    color: #fff;
+    border: 1px solid #007aff;
+    border-radius: 8px;
+}
+
+
+/* --- 4. Editor Search & Toolbar --- */
+#builderSearch { width: 100%; box-sizing: border-box; border: 1px solid var(--color-border); border-radius: 8px; font-size: 16px; line-height: 1.4; transition: height 0.2s ease; }
+#builderSearch:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(0,122,255,0.2); }
+.builder-toolbar-primary #builderSearch { flex: 1; border-radius: 6px; min-height: 42px !important; max-height: 80px; padding: 8px 10px; resize: vertical; }
+
+
+/* --- 5. Builder Category Input Dropdown --- */
+#builderCategory { width: 280px !important; min-width: 280px; flex: none !important; appearance: none; -moz-appearance: none; -webkit-appearance: none; }
+#builderCategory::-webkit-calendar-picker-indicator { display: none !important; }
+#builderCategoryList { background-color: white; border: 1px solid var(--color-border); }
+
+
+/* --- 6. Sequence Loops & Macro Rows --- */
+.builder-macro-row { background: linear-gradient(90deg, #eef6ff 0%, #f8fbff 100%) !important; border-left: 4px solid #1565c0 !important; }
+.builder-loop-row { background-color: #fdfae3 !important; border-left: 4px solid #fbc02d !important; }
+.builder-macro-row td, .builder-loop-row td { font-style: normal; color: #12324a; }
+.macro-title-badge { display: inline-block; background-color: #1976d2; color: white; font-size: 0.75rem; font-weight: bold; padding: 2px 6px; border-radius: 4px; margin-right: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.builder-info-macro { min-width: 185px !important; }
+.builder-macro-info-line { font-size: 0.8rem; line-height: 1.35; color: #16324f; }
+.builder-macro-note { margin-top: 6px; font-size: 0.72rem; color: #4b5563; white-space: normal; }
+
+
+/* --- 7. Builder Info Cells (Non-editable metadata) --- */
+.builder-info-cell { padding: 8px 10px; vertical-align: top; width: 170px; min-width: 140px; }
+.builder-info-special { color: #ccc; font-size: 0.85rem; text-align: center; vertical-align: middle; }
+.binfo-dur { display: inline-flex; align-items: center; gap: 3px; background: #e8f0fe; color: #1a56db; border: 1px solid #c5d8fd; border-radius: 10px; padding: 2px 8px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+.binfo-range { display: block; font-size: 0.68rem; color: #999; margin-top: 3px; white-space: nowrap; }
+.binfo-sides { display: inline-flex; align-items: center; gap: 3px; margin-top: 5px; font-size: 0.68rem; color: #2e7d32; font-weight: 600; white-space: nowrap; }
+
+/* Category Chip Colors */
+.binfo-cat { display: inline-block; margin-top: 5px; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 600; white-space: nowrap; background: #f3f4f6; color: #555; border: 1px solid #e5e7eb; }
+.binfo-cat[data-cat="standing"] { background:#fef3c7; color:#92400e; border-color:#fcd34d; }
+.binfo-cat[data-cat="seated"] { background:#ede9fe; color:#5b21b6; border-color:#c4b5fd; }
+.binfo-cat[data-cat="supine"] { background:#d1fae5; color:#065f46; border-color:#6ee7b7; }
+.binfo-cat[data-cat="prone"] { background:#fce7f3; color:#9d174d; border-color:#f9a8d4; }
+.binfo-cat[data-cat="inversion"] { background:#fee2e2; color:#991b1b; border-color:#fca5a5; }
+.binfo-cat[data-cat="balance"] { background:#fff7ed; color:#9a3412; border-color:#fdba74; }
+.binfo-cat[data-cat="twists"] { background:#ecfeff; color:#164e63; border-color:#67e8f9; }
+.binfo-cat[data-cat="backbend"] { background:#fef9c3; color:#713f12; border-color:#fde047; }
+.binfo-cat[data-cat="forward"] { background:#f0fdf4; color:#166534; border-color:#86efac; }
+.binfo-cat[data-cat="restorative"] { background:#f0f9ff; color:#0c4a6e; border-color:#7dd3fc; }
+
+.builder-row-meta { font-size: 0.65rem; color: #6b7280; letter-spacing: 0.06em; font-weight: 700; }
+.builder-info-flow { min-width: 190px !important; }
+.builder-flow-info-block {
+    display: flex;
+    align-items: center; /* Vertically centers the text with the input */
+    gap: 8px;            /* Adds a nice breathing space between elements */
+    white-space: nowrap; /* Prevents "secs" from wrapping to a new line */
+}
+.builder-flow-label { font-size: 0.72rem; font-weight: 700; color: #0f3d75; text-transform: uppercase; letter-spacing: 0.04em; }
+.b-flow-hold {
+    width: 60px;         /* Give the input a fixed width so it doesn't hog space */
+}.builder-flow-unit { font-size: 0.72rem; color: #475569; }
+
+
+/* Lock the Order Column to a safe minimum */
+.builder-order-column {
+    padding: 8px !important; /* Balanced padding */
+    vertical-align: middle !important; /* Centered buttons */
+    border-bottom: 1px solid #eee !important;
+    width: 1% !important;
+}
+
+.order-controls-group {
+    display: flex !important;
+    gap: 4px !important;
+    justify-content: center !important;
+    flex-wrap: nowrap !important; /* Prevents splitting into two rows on desktop */
+}
+
+.order-controls-group button {
+    flex: 0 0 auto !important;
+}
+
+
+/* ==========================================================================
+   8. MOBILE RESPONSIVE BLOCKS (Card Layout)
+   ========================================================================== */
+
+/* Tablet Optimization (Max-Width 700px) */
+@media (max-width: 700px) {
+    #editCourseBackdrop .modal { width: 100%; height: 100vh; max-width: 100%; margin: 0; border-radius: 0; display: flex; flex-direction: column; }
+    #editCourseBackdrop .modal-body { flex: 1 !important; overflow-x: auto; overflow-y: auto; max-height: calc(100dvh - 190px) !important; -webkit-overflow-scrolling: touch; }
+    #editCourseBackdrop .modal-header { flex-direction: column; align-items: stretch; gap: 8px; padding: 10px 12px; }
+    #editCourseBackdrop .modal-header > div, #builderTitle { width: 100%; }
+    #editCourseBackdrop .modal-footer { flex-direction: column; gap: 8px; padding: 10px 12px; }
+    #editCourseBackdrop .modal-footer > div { width: 100%; display: flex; gap: 6px; flex-wrap: wrap; }
+    #editCourseBackdrop .modal-footer button { flex: 1; min-width: 80px; font-size: 0.82rem; padding: 8px 6px; }
+    .b-note { width: 80px !important; }
+}
+
+/* Mobile Phone Optimization (Max-Width 600px) */
+@media (max-width: 600px) {
+    /* Builder Panel & Modal UI */
+    /* --- Fix for the Order Controls (Stop left overflow) --- */
+    #builderTable td.builder-order-column {
+        display: flex !important;
+        width: 100% !important;
+        justify-content: center !important;
+        padding: 12px 0 4px 0 !important;
+        border-top: 1px dashed #eee !important; /* Visual separator */
+        margin-top: 8px !important;
+    }
+
+    .order-controls-group {
+        display: flex !important;
+        width: 100% !important;
+        justify-content: space-between !important; /* Spread evenly, no left overflow */
+        gap: 8px !important;
+    }
+
+    .order-controls-group button {
+        flex: 1 !important; /* Make all 4 buttons equal width */
+        padding: 10px 0 !important; /* Taller touch targets for thumbs */
+        font-size: 1.2rem !important; /* Bigger arrows */
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        background: #f2f2f7 !important;
+        border: 1px solid #d1d1d6 !important;
+        border-radius: 8px !important;
+    }
+
+    /* Force unhide the top/bottom buttons that older mobile rules were hiding */
+    #builderTableBody .b-move-top,
+    #builderTableBody .b-move-bot,
+    #builderTableBody .b-move-up,
+    #builderTableBody .b-move-dn {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+
+
+    .builder-tools-toggle-btn, #builderToolsToggle {
+        display: none !important;
+    }
+
+    .builder-tools-panel {
+        display: flex;
+        flex-direction: column;
+    }
+
+    #editCourseBackdrop .modal {
+        height: 100dvh;
+        max-height: 100dvh;
+        padding-bottom: env(safe-area-inset-bottom, 12px);
+    }
+
+    #editCourseBackdrop .modal-header input {
+        padding: 6px 8px !important;
+        font-size: 0.85rem !important;
+        min-height: 36px !important;
+    }
+
+    /* Transform Table to Card Stack */
+    #builderTable,
+    #builderTable tbody,
+    #builderTable tr,
+    #builderTable td:not(.b-col-id):not(.b-col-details):not(.builder-info-cell) {
+        display: block !important;
+        width: 100% !important;
+        box-sizing: border-box;
+    }
+
+    #builderTable thead, #builderTable th {
+        display: none !important;
+    }
+
+    #builderTable tr {
+        margin-bottom: 12px;
+        border: 1px solid var(--color-border);
+        border-radius: 12px;
+        background: #fff;
+        padding: 0; /* Let cells handle the margin/padding */
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        display: grid !important;
+        grid-template-areas:
+            "id details"
+            "controls controls";
+        grid-template-columns: 80px 1fr;
+        gap: 0;
+        width: 100% !important;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+
+    .b-col-id {
+        grid-area: id;
+        width: 80px !important;
+        max-width: 80px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center;
+        justify-content: flex-start;
+        background: #f8f9fa;
+        padding: 12px 2px !important;
+        border-right: 1px solid #eee;
+        box-sizing: border-box;
+        overflow: hidden;
+        height: 100%;
+    }
+
+    .b-col-details {
+        grid-area: details;
+        width: 100% !important;
+        display: block !important;
+        padding: 12px 12px 12px 5mm !important; /* Indented 5mm from divider */
+        min-width: 0; /* CRITICAL: Allows grid item to shrink below content size */
+        box-sizing: border-box;
+        word-break: break-word; /* Ensure Sanskrit doesn't push width */
+        max-width: none !important;
+    }
+
+    /* Show Devanagari on mobile but keep it tiny and contained */
+    .b-devanagari {
+        display: block !important;
+        font-size: 1rem !important;
+        word-break: break-all !important;
+    }
+
+    /* Fix: Structural "Ghost" Column for full-width rows */
+    .b-col-ambiguous,
+    .b-col-spacer {
+        grid-column: 1 / -1 !important;
+        width: 100% !important;
+        display: block !important;
+        box-sizing: border-box;
+    }
+
+    /* Hide Info column entirely on mobile view, but EXCLUDE the PDF export snapshot */
+    /* Scoping to .modal:not(.export-snapshot-host) ensures export remains intact */
+    .modal:not(.export-snapshot-host) .b-col-info,
+    .modal:not(.export-snapshot-host) .builder-info-cell,
+    .modal:not(.export-snapshot-host) #builderTable td:nth-child(3) {
+        display: none !important;
+    }
+
+    .b-col-controls {
+        grid-area: controls;
+        min-width: 0 !important; /* Reset desktop minimum width */
+        width: 100% !important;
+        display: block;
+        padding: 8px 12px !important;
+        border-top: 1px dashed #eee;
+    }
+
+    /* Force hide controls column AND group in View Mode */
+    .builder-view-mode .b-col-controls,
+    .builder-view-mode .order-controls-group {
+        display: none !important;
+    }
+
+    /* Col 1: Controls & Move Buttons (Now Visible & Grouped) */
+    .b-col-id {
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 4px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 8px !important;
+        margin-bottom: 10px;
+    }
+
+    /* Col 2: Title & Variations (Filling the White Space) */
+    #builderTable td:nth-child(2) {
+        padding: 8px 12px 8px 8mm !important;
+        font-size: 1.1rem;
+        max-width: none !important; /* Allow spanning across */
+        width: 100% !important;
+    }
+
+    #builderTable td:nth-child(2) > div:first-child {
+        display: block !important;
+        line-height: 1.3 !important;
+    }
+
+    /* The Blue Dropdown: Full width on mobile */
+    .b-var {
+        display: block !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 8px 0 0 0 !important;
+        height: 32px !important;
+    }
+
+    /* Ensure dropdown is hidden in View Mode on mobile to prevent double variation display */
+    .builder-view-mode .b-var-edit {
+        display: none !important;
+    }
+    .builder-view-mode .b-var-view {
+        display: block !important;
+        margin-top: 4px;
+        color: #005580;
+        font-size: 0.95rem;
+        font-weight: 600;
+    }
+
+    /* Col 3: Time Dials & Info */
+    #builderTable td:nth-child(3) {
+        border-top: 1px dashed #eee !important;
+        margin-top: 10px;
+        padding: 10px 8px !important;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    /* Ensure remaining tool buttons (Remove/Search) are contained */
+    #builderTable td:nth-child(4),
+    #builderTable td:nth-child(5) {
+        display: flex !important;
+        justify-content: flex-end !important;
+        gap: 8px !important;
+        padding: 8px 0 0 0 !important;
+    }
+
+    /* Syncing your existing logic for mobile specific visibility */
+    #builderTableBody:not(.builder-view-mode) .b-move-up,
+    #builderTableBody:not(.builder-view-mode) .b-move-dn {
+        display: inline-flex !important;
+    }
+
+    /* Ensure arrows are strictly hidden in View Mode regardless of specificity */
+    .builder-view-mode .b-move-top,
+    .builder-view-mode .b-move-bot,
+    .builder-view-mode .b-move-up,
+    .builder-view-mode .b-move-dn {
+        display: none !important;
+    }
+
+    #builderTableBody span[title] {
+        font-size: 0.65rem !important;
+        padding: 3px 6px !important;
+        display: inline-block !important;
+    }
+}
+/* --- 9. Link Sequence Search Dropdown --- */
+.link-results-container {
+    display: none;
+    background: #fff;
+    border: 1px solid #d2d2d7;
+    border-radius: 8px;
+    max-height: 280px; /* Controlled height */
+    overflow-y: auto;
+    margin: 8px 0; /* Creates space between search and repetitions */
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); /* Sunken look */
+}
+
+#linkSequenceInput {
+    border-radius: 8px !important;
+}
+
+.link-option-row {
+    padding: 14px 12px; /* Taller for easier thumb tapping */
+    border-bottom: 1px solid #f5f5f7;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.link-option-row:hover {
+    background: #f5f5f7;
+}
+
+.link-option-title {
+    font-weight: 700;
+    color: #1d1d1f;
+    display: block;
+}
+
+.link-option-meta {
+    color: #86868b;
+    font-weight: 600;
+    font-size: 0.8rem;
+    opacity: 0.6; /* Minimalized for hierarchy */
+}
+
+.link-option-row:last-child {
+    border-bottom: none;
+}
+
+
+.b-prop-pill {
+    display: inline-block;
+    margin-left: 8px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    filter: grayscale(1);
+    opacity: 0.2;
+    transition: all 0.2s ease;
+    vertical-align: middle;
+}
+
+/* Hover: Peek at the icon */
+.b-prop-pill:hover {
+    opacity: 0.6;
+    filter: grayscale(0.5);
+}
+
+/* Active: Full color and opacity */
+.b-prop-pill.active {
+    opacity: 1;
+    filter: grayscale(0);
+}
+
+/* --- Dismissible Warning UI Styles --- */
+.modal-notes-row.collapsed {
+    padding: 0 !important;
+    margin: 0 !important;
+    border-bottom: none !important;
+    min-height: 0 !important;
+    overflow: visible !important; /* Ensure absolute children remain clickable */
+}
+
+.modal-notes-row.collapsed #displayNotes {
+    display: none !important;
+}
+
+.warning-dismiss-btn {
+    position: absolute;
+    top: 12px;
+    right: 15px;
+    background: rgba(0,0,0,0.04);
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #86868b;
+    font-size: 14px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.warning-dismiss-btn:hover {
+    background: rgba(0,0,0,0.08);
+    color: #1d1d1f;
+}
+
+.warning-restore-btn {
+    display: none;
+    position: absolute;
+    right: 15px;
+    top: 12px;
+    background: #f5f5f7; /* Neutral light grey */
+    color: #86868b; /* Muted grey text */
+    border: 1px solid #d2d2d7;
+    border-radius: 50%;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    font-size: 0.8rem;
+    z-index: 100;
+    pointer-events: auto !important;
+}
+
+.modal-notes-row.collapsed .warning-restore-btn {
+    display: flex;
+}
+
+/* Mobile adjustments for warning buttons */
+@media (max-width: 700px) {
+    .warning-dismiss-btn,
+    .warning-restore-btn {
+        top: 8px; /* Adjust vertical position for smaller headers */
+        right: 10px;
+    }
+}
+
+/* --- Jobsian Summary ID Badge --- */
+.summary-id-badge {
+    font-size: 0.65rem;
+    color: #86868b; /* Apple muted gray */
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: #f5f5f7; /* Subtle light gray wash */
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 8px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* --- Jobsian Summary ID Badge --- */
+.summary-id-badge {
+    font-size: 0.65rem;
+    color: #86868b; /* Apple muted gray */
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: #f5f5f7; /* Subtle light gray wash */
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-right: 8px;
+    display: inline-block;
+    vertical-align: middle;
+}

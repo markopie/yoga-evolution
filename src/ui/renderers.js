@@ -1,0 +1,132 @@
+// src/ui/renderers.js
+
+import { renderMarkdownMinimal } from "../utils/format.js";
+import { findAsanaByIdOrPlate, normalizePlate } from "../services/dataAdapter.js";
+
+export function updatePoseNote(note) {
+   const details = document.getElementById("poseNoteDetails");
+   const body = document.getElementById("poseNoteBody");
+   if (!details || !body) return;
+
+   const text = (note ?? "").toString().trim();
+   if (!text) {
+      details.style.display = "none";
+      details.open = false;
+      body.innerHTML = "";
+      return;
+   }
+
+   details.style.display = "block";
+   details.open = true;
+   details.className = "asana-info-accordion asana-info-accordion--note";
+
+   const speakBtn = `<button class="tiny asana-info-accordion__speak-btn" style="margin-bottom:8px; opacity:0.6;" onclick="window.toggleSpeak(\`${text.replace(/"/g, "'")}\`, this)">🔊 Speak Note</button>`;
+   body.innerHTML = speakBtn + `<div class="asana-info-accordion__content">${renderMarkdownMinimal(text)}</div>`;
+   body.className = "asana-info-accordion__body";
+}
+
+export function updatePoseAsanaDescription(asana, matchedTechnique = "") {
+    const stack = document.getElementById("poseInfoStack");
+    const descDetails = document.getElementById("poseAsanaDescDetails");
+    const descBody = document.getElementById("poseAsanaDescBody");
+    const techDetails = document.getElementById("poseTechniqueDetails");
+    const techBody = document.getElementById("poseTechniqueBody");
+
+    if (!descDetails || !techDetails) return;
+
+    // ARCHITECT FIX: Check if the note accordion is already visible
+    const hasNote = document.getElementById("poseNoteDetails")?.style.display !== "none";
+    let hasContent = hasNote;
+
+    const descText = (asana?.description || asana?.Description || "").toString().trim();
+    if (descText) {
+        descDetails.style.display = "block";
+        descDetails.open = false;
+        descDetails.className = "asana-info-accordion asana-info-accordion--description";
+        descBody.style.display = "block";
+        const speakBtn = `<button class="tiny asana-info-accordion__speak-btn" style="margin-bottom:8px; opacity:0.6;" onclick="window.toggleSpeak(\`${descText.replace(/"/g, "'").replace(/\\n/g, ' ')}\`, this)">🔊 Speak Description</button>`;
+        descBody.innerHTML = speakBtn + `<div class="asana-info-accordion__content">${renderMarkdownMinimal(descText.replace(/\\n/g, '\n'))}</div>`;
+        descBody.className = "asana-info-accordion__body";
+        hasContent = true;
+    } else {
+        descDetails.style.display = "none";
+    }
+
+    const finalTech = matchedTechnique || asana?.full_technique || asana?.technique || asana?.Technique || "";
+    if (finalTech && finalTech.trim()) {
+        techDetails.style.display = "block";
+        techDetails.open = false;
+        techDetails.className = "asana-info-accordion asana-info-accordion--technique";
+        const speakBtn = `<button class="tiny asana-info-accordion__speak-btn" style="margin-bottom:8px; opacity:0.6;" onclick="window.toggleSpeak(\`${finalTech.replace(/"/g, "'").replace(/\\n/g, ' ')}\`, this)">🔊 Speak Technique</button>`;
+        techBody.innerHTML = speakBtn + `<div class="asana-info-accordion__content">${renderMarkdownMinimal(finalTech.toString().replace(/\\n/g, '\n'))}</div>`;
+        techBody.className = "asana-info-accordion__body";
+        hasContent = true;
+    } else {
+        techDetails.style.display = "none";
+    }
+
+    if (stack) {
+        // Safety Briefing Isolation: Ensure sidebar is hidden during briefing
+        if (window.isBriefingActive) {
+            stack.style.display = "none";
+        } else {
+            stack.style.display = hasContent ? "block" : "none";
+        }
+    }
+}
+
+export function getContentForPose(asana, fullLabel) {
+    if (!asana) return { description: "", technique: "" };
+
+    let description = (asana.description || asana.Description || "").trim();
+    let technique = (asana.full_technique || asana.technique || asana.Technique || "").trim();
+
+    // Stage logic (Matches your existing pattern)
+    const stageMatch = (fullLabel || "").match(/\s([IVXLCDM]+[a-b]?)$/i);
+    if (stageMatch) {
+        let stageKey = stageMatch[1].toUpperCase().replace(/([A-B])$/, (m) => m.toLowerCase());
+
+        // If a specific stage description exists (e.g. asana["IIb"])
+        if (asana[stageKey]) {
+            description = asana[stageKey].trim();
+        }
+
+        // If a specific stage technique exists (e.g. asana["Technique_IIb"])
+        const stageTechKey = `Technique_${stageKey}`;
+        const stageFullTechKey = `full_technique_${stageKey}`;
+
+        if (asana[stageFullTechKey]) technique = asana[stageFullTechKey].trim();
+        else if (asana[stageTechKey]) technique = asana[stageTechKey].trim();
+    }
+
+    return { description, technique };
+}
+
+export function updatePoseDescription(idField, label) {
+   const body = document.getElementById("poseDescBody");
+   if (!body) return;
+   const asana = findAsanaByIdOrPlate(idField);
+   const md = descriptionForPose(asana, label);
+
+   if (md) {
+      body.innerHTML = renderMarkdownMinimal(md);
+   } else {
+      body.innerHTML = '<div class="msg">No notes</div>';
+   }
+}
+
+export function descriptionForPose(asana, fullLabel) {
+   if (!asana) return "";
+
+   // Extract Stage from Label (e.g., "Ujjayi IIb" -> "IIb")
+   const stageMatch = (fullLabel || "").match(/\\s([IVXLCDM]+[a-b]?)$/i);
+   if (stageMatch) {
+       let stageKey = stageMatch[1].toUpperCase();
+       stageKey = stageKey.replace(/([A-B])$/, (m) => m.toLowerCase());
+
+       if (asana[stageKey]) {
+           return asana[stageKey].trim();
+       }
+   }
+   return (asana.Description || asana.Technique || "").trim();
+}

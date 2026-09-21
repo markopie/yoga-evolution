@@ -1,0 +1,446 @@
+// src/playback/timerEvents.js
+// ────────────────────────────────────────────────────────────────────────────
+// Extracted from app.js Phase 4. Timer engine event callbacks.
+// ────────────────────────────────────────────────────────────────────────────
+
+// 1. ENGINE BINDINGS
+import { ratingOverlayOptionsForCompletion } from '../utils/completionFlow.js';
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') window.playbackEngine?.syncNow?.();
+});
+window.addEventListener('focus', () => window.playbackEngine?.syncNow?.());
+
+window.startTimer = () => window.playbackEngine.start();
+window.stopTimer = () => window.playbackEngine.stop();
+
+/** Helper to detect if the current pose is part of a Flow segment. */
+function isFlowPlaybackPose(pose = null) {
+    const poseMeta = pose?.[7] || null;
+    return !!(poseMeta?.flowSegment || window.currentSequence?.playbackMode === 'flow' || window.currentSequence?.isFlow);
+}
+
+const DEFAULT_AUDIO_CUE_TIMEOUT_MS = 12_000;
+
+function afterAudioCue(promise, onSettled, label = 'pose cue') {
+    const configuredTimeout = Number(window.__playbackAudioCueTimeoutMs);
+    const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+        ? configuredTimeout
+        : DEFAULT_AUDIO_CUE_TIMEOUT_MS;
+    let settled = false;
+    const finish = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        onSettled();
+    };
+    const timeoutId = setTimeout(() => {
+        console.warn(`[Playback] ${label} did not finish; continuing the timer.`);
+        finish();
+    }, timeoutMs);
+    Promise.resolve(promise).catch((error) => {
+        console.warn(`[Playback] ${label} failed; continuing the timer.`, error);
+    }).then(finish);
+}
+
+// 2. ON START HOOK
+window.playbackEngine.onStart = () => {
+    if (typeof window.enableWakeLock === "function") window.enableWakeLock();
+
+    const overlay = document.getElementById("focusOverlay");
+    if (overlay) overlay.style.display = "flex";
+
+    const statusEl = document.getElementById("statusText");
+    if (statusEl) statusEl.textContent = "Running";
+
+    const startBtn = document.getElementById("startStopBtn");
+    if (startBtn) startBtn.textContent = "Pause";
+
+    const pauseBtn = document.getElementById("focusPauseBtn");
+    if (pauseBtn) {
+        pauseBtn.onclick = () => window.playbackEngine.stop();
+    }
+
+    try {
+        const poses = (window.activePlaybackList && window.activePlaybackList.length > 0)
+            ? window.activePlaybackList : (window.currentSequence?.poses || []);
+
+        if (poses[window.currentIndex]) {
+            const idx = window.currentIndex;
+            const currentPose = poses[idx];
+
+            // --- 🧭 STATE SYNC ---
+            const meta = currentPose[7] || {};
+            if (meta.explicitSide) {
+                window.currentSide = meta.explicitSide === 'L' ? 'left' : 'right';
+                window.needsSecondSide = false;
+            } else if (window._lastSideIdx !== idx) {
+                window._lastSideIdx = idx;
+                window.currentSide = 'right';
+            }
+
+            // --- SKIP BUTTON LOGIC ---
+            const activeSkipBtn = document.getElementById("activePoseSkipBtn");
+            if (activeSkipBtn) {
+                const note = String(currentPose[4] || "").toLowerCase();
+                const poseName = String(currentPose[6] || "").toLowerCase();
+                const isSkipType = note.includes("recovery") || poseName.includes("recovery") ||
+                                   note.includes("preparat") || poseName.includes("preparat");
+
+                if (isSkipType) {
+                    activeSkipBtn.style.display = "inline-block";
+                    activeSkipBtn.onclick = () => {
+                        window.playbackEngine.stop();
+                        const advanced = typeof window.nextPose === "function" ? window.nextPose() : false;
+                        if (advanced) window.playbackEngine.start();
+                    };
+                } else {
+                    activeSkipBtn.style.display = "none";
+                }
+            }
+
+            const rawId = Array.isArray(currentPose[0]) ? currentPose[0][0] : currentPose[0];
+            const asana = typeof window.findAsanaByIdOrPlate === "function" ? window.findAsanaByIdOrPlate(window.normalizePlate(rawId)) : null;
+
+            if (asana) {
+                if (window.playbackEngine.remaining === window.playbackEngine.currentPoseSeconds) {
+
+                    const triggerAsanaAudio = () => {
+                        if (typeof window.playAsanaAudio !== "function") {
+                            window.playbackEngine.resume();
+                            return;
+                        }
+                        const side = window.getCurrentSide ? window.getCurrentSide() : null;
+                        const isSecondSide = side === "left" && !!(asana.requiresSides || asana.requires_sides);
+
+                        window.playbackEngine.suspend();
+                        // ARCHITECT FIX: Only speak the note if NOT inside a macro (to avoid repetition)
+                        const spokenNote = meta.macroTitle ? "" : (window.currentActualNote || "");
+                        // ARCHITECT FIX: Explicitly use index 6 (Label) as the spoken name for the pose
+                        const cue = window.playAsanaAudio(asana, currentPose[6] || "", false, side, window.currentVariationKey || null, isSecondSide, meta.props || [], spokenNote);
+                        afterAudioCue(cue, () => {
+                            if (window.currentIndex === idx && window.playbackEngine.running) {
+                                window.playbackEngine.resume();
+                            }
+                        });
+                    };
+
+                    if (window._lastBoundaryIdx !== idx) {
+                        window._lastBoundaryIdx = idx;
+
+                        const prevPose = idx > 0 ? poses[idx - 1] : null;
+                        const prevMeta = prevPose ? (prevPose[7] || {}) : {};
+
+                        let boundaryPromise = Promise.resolve();
+                        let hasBoundary = false;
+
+                        if (meta.macroTitle && meta.macroTitle !== prevMeta.macroTitle) {
+                            hasBoundary = true;
+                            // Capture note immediately from state to ensure it doesn't drift
+                            const boundaryNote = window.currentActualNote || currentPose[4] || "";
+                            const cleanTitle = meta.macroTitle.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+                            boundaryPromise = boundaryPromise.then(() => typeof window.playSystemAudio === 'function' ? window.playSystemAudio(`macro_start_${cleanTitle}`) : Promise.resolve())
+                                                             .then(() => (boundaryNote && typeof window.speakText === 'function') ? window.speakText(boundaryNote) : Promise.resolve());
+                        } else if (prevMeta.macroTitle && !meta.macroTitle) {
+                            hasBoundary = true;
+                            boundaryPromise = boundaryPromise.then(() => typeof window.playSystemAudio === 'function' ? window.playSystemAudio("macro_end") : Promise.resolve());
+                        }
+
+                        if (meta.loopCurrent) {
+                            const isNewRound = prevMeta.loopCurrent && meta.loopCurrent !== prevMeta.loopCurrent;
+                            const isFirstRoundStart = !prevMeta.loopCurrent && meta.loopCurrent === 1;
+
+                            if (isFirstRoundStart) {
+                                hasBoundary = true;
+                                boundaryPromise = boundaryPromise.then(() => typeof window.playSystemAudio === 'function' ? window.playSystemAudio("loop_start") : Promise.resolve())
+                                                                 .then(() => typeof window.speakRound === 'function' ? window.speakRound(1) : Promise.resolve());
+                            } else if (isNewRound) {
+                                hasBoundary = true;
+                                boundaryPromise = boundaryPromise.then(() => typeof window.speakRound === 'function' ? window.speakRound(meta.loopCurrent) : Promise.resolve());
+                            }
+                        } else if (prevMeta.loopCurrent && !meta.loopCurrent) {
+                            hasBoundary = true;
+                            boundaryPromise = boundaryPromise.then(() => typeof window.playSystemAudio === 'function' ? window.playSystemAudio("loop_end") : Promise.resolve());
+                        }
+
+                        if (hasBoundary) {
+                            window.playbackEngine.suspend();
+                            afterAudioCue(boundaryPromise, () => {
+                                if (window.currentIndex === idx && window.playbackEngine.running) {
+                                    triggerAsanaAudio();
+                                }
+                            }, 'sequence boundary cue');
+                            return;
+                        }
+                    }
+                    triggerAsanaAudio();
+                } else {
+                    new Audio("data:audio/mp3;base64,//MkxAAQ").play().catch(()=>{});
+                }
+            }
+        }
+    } catch(e) {
+        console.warn("Audio start logic failed", e);
+    }
+};
+
+// 3. OTHER ENGINE HOOKS
+window.playbackEngine.onStop = () => {
+    const focusOverlay = document.getElementById("focusOverlay");
+    if (focusOverlay) focusOverlay.style.display = "none";
+    const transOverlay = document.getElementById("transitionOverlay");
+    if (transOverlay) transOverlay.style.display = "none";
+    document.body.classList.remove("modal-open");
+    if (typeof window.updateTotalAndLastUI === "function") window.updateTotalAndLastUI();
+    const btn = document.getElementById("startStopBtn");
+    if(btn) btn.textContent = "Start";
+    const statusEl = document.getElementById("statusText");
+    if (statusEl) statusEl.textContent = "Paused";
+    if (typeof window.disableWakeLock === "function") window.disableWakeLock();
+};
+
+window.playbackEngine.onTick = (remaining, currentPoseSeconds) => {
+    window.updateTimerUI(remaining, currentPoseSeconds);
+};
+
+window.playbackEngine.onTransitionStart = (secs) => {
+    const overlay = document.getElementById("transitionOverlay");
+    if (overlay) overlay.style.display = "flex";
+
+    const skipBtn = document.getElementById("transitionSkipBtn");
+    if (skipBtn) {
+        skipBtn.onclick = (e) => {
+            e.preventDefault();
+            if (overlay) overlay.style.display = "none";
+            window.playbackEngine.stop();
+            const advanced = typeof window.nextPose === "function" ? window.nextPose() : false;
+            if (advanced) window.playbackEngine.start();
+        };
+    }
+
+    const timerEl = document.getElementById("transitionTimer") || document.querySelector(".transition-countdown");
+    if (timerEl) {
+        timerEl.textContent = typeof window.formatHMS === "function" ? window.formatHMS(secs) : secs;
+    }
+};
+
+window.playbackEngine.onTransitionTick = (remaining) => {
+    const timerEl = document.getElementById("transitionTimer") || document.querySelector(".transition-countdown");
+    if (timerEl) {
+        timerEl.textContent = typeof window.formatHMS === "function" ? window.formatHMS(remaining) : remaining;
+        if (remaining <= 3) {
+            timerEl.style.color = "#d32f2f";
+            timerEl.style.transform = "scale(1.1)";
+        } else {
+            timerEl.style.color = "";
+            timerEl.style.transform = "";
+        }
+    }
+};
+
+window.playbackEngine.onTransitionComplete = () => {
+    const overlay = document.getElementById("transitionOverlay");
+    if (overlay) overlay.style.display = "none";
+    const advanced = typeof window.nextPose === "function" ? window.nextPose() : false;
+    if (advanced) window.playbackEngine.start();
+};
+
+window.playbackEngine.onActiveTick = (secs) => {
+    if (typeof window.updateNodeCompletion === 'function') {
+        window.updateNodeCompletion(window.getCurrentIndex(), secs);
+    }
+};
+
+window.playbackEngine.onPoseComplete = (wasLongHold) => {
+    const poses = (window.activePlaybackList && window.activePlaybackList.length > 0) ? window.activePlaybackList : (window.currentSequence?.poses || []);
+    const currentPose = poses[window.currentIndex] || null;
+    const flowPose = isFlowPlaybackPose(currentPose);
+
+    const advanceAndRestart = () => {
+        const advanced = window.nextPose();
+        if (advanced) window.playbackEngine.start();
+    };
+
+    if (wasLongHold && !flowPose && typeof window.playFaintGong === "function") window.playFaintGong();
+
+    const nextPose = poses[window.currentIndex + 1] || null;
+    const currMeta = currentPose?.[7] || {};
+    const nextMeta = nextPose?.[7] || {};
+    const isLastSide = !window.needsSecondSide;
+
+    // 🚫 Skip transition overlay for embedded sequences (macroTitle) and final pose
+    const isEmbeddedPose = !!(currMeta.macroTitle);
+    const isFinalPose = window.currentIndex >= poses.length - 1;
+
+    if (wasLongHold && !flowPose && isLastSide && !isEmbeddedPose && !isFinalPose) {
+        const nextLabelEl = document.querySelector(".transition-next");
+        if (nextLabelEl && nextPose) {
+            let nextName = "";
+            if (nextMeta.macroTitle) {
+                nextName = nextMeta.macroTitle;
+            } else {
+                const id = Array.isArray(nextPose[0]) ? nextPose[0][0] : nextPose[0];
+                const asana = typeof window.findAsanaByIdOrPlate === "function"
+                    ? window.findAsanaByIdOrPlate(window.normalizePlate(id))
+                    : null;
+                nextName = asana ? (typeof window.displayName === "function" ? window.displayName(asana) : (asana.english || asana.name)) : (nextPose[6] || "Next Pose");
+            }
+            nextLabelEl.textContent = `Up next: ${nextName}`;
+        }
+        window.playbackEngine.startTransition(15);
+        return;
+    }
+
+    if (flowPose && typeof window.getCurrentAudio === 'function') {
+        const activeAudio = window.getCurrentAudio();
+        if (activeAudio && !activeAudio.paused && !activeAudio.ended) {
+            let finished = false;
+            const cleanup = () => {
+                activeAudio.removeEventListener('ended', handleEnded);
+                clearTimeout(safetyTimer);
+            };
+            const handleEnded = () => {
+                if (finished) return;
+                finished = true;
+                cleanup();
+                advanceAndRestart();
+            };
+            const safetyTimer = setTimeout(() => {
+                if (finished) return;
+                finished = true;
+                cleanup();
+                advanceAndRestart();
+            }, 5000);
+            activeAudio.addEventListener('ended', handleEnded, { once: true });
+            return;
+        }
+    }
+    advanceAndRestart();
+};
+
+// 4. BOTTOM UI FUNCTIONS
+async function triggerSequenceEnd() {
+    window.stopTimer();
+    const transOverlay = document.getElementById("transitionOverlay");
+    if (transOverlay) transOverlay.style.display = "none";
+    const focusOverlay = document.getElementById("focusOverlay");
+    if (focusOverlay) focusOverlay.style.display = "none";
+
+    const activeList = (typeof window.getActivePlaybackList === 'function' ? window.getActivePlaybackList() : []) || [];
+    const tracker = typeof window.getCompletionTracker === 'function' ? window.getCompletionTracker() : {};
+
+    let totalSecsAllocated = 0;
+    let totalSecsPracticed = 0;
+
+    if (activeList && activeList.length > 0) {
+        const groupMap = {};
+        activeList.forEach((node, playbackIdx) => {
+            const origIdx = (node[5] !== undefined && node[5] !== null) ? node[5] : `p-${playbackIdx}`;
+            if (!groupMap[origIdx]) {
+                groupMap[origIdx] = { totalAllocated: 0, totalCompleted: 0 };
+            }
+
+            const allocated = Number(node[1] || 0);
+            const practiced = Number(tracker[playbackIdx] || 0);
+
+            groupMap[origIdx].totalAllocated += allocated;
+            groupMap[origIdx].totalCompleted += practiced;
+
+            totalSecsAllocated += allocated;
+            totalSecsPracticed += practiced;
+        });
+
+        let completedSections = 0;
+        Object.values(groupMap).forEach(g => {
+            const ratio = g.totalAllocated > 0 ? (g.totalCompleted / g.totalAllocated) : 0;
+            if (ratio >= 0.9) completedSections++;
+        });
+    }
+
+    const completionRatio = totalSecsAllocated > 0 ? (totalSecsPracticed / totalSecsAllocated) : 0;
+    const isSuccess = completionRatio >= 0.9;
+
+    if (isSuccess) {
+        let ratingOverlay = document.getElementById("ratingOverlay");
+
+        if (typeof window.appendServerHistory === "function") {
+            const title = window.currentSequence?.title || "Unknown";
+            const dur = Math.round(totalSecsPracticed);
+
+            try {
+                const curriculumPractice = window.currentCurriculumPractice || null;
+                const sessionId = await window.appendServerHistory(title, new Date(), window.currentSequence?.category, dur, {
+                    status: 'Completed',
+                    sequence_id: curriculumPractice?.resolved_sequence_id || window.currentSequence?.supabaseId || window.currentSequence?.id || null,
+                    curriculum_node_id: curriculumPractice?.curriculum_node_id || null,
+                    completion_items: typeof window.getCurriculumCompletionItems === 'function'
+                        ? window.getCurriculumCompletionItems(curriculumPractice)
+                        : null,
+                });
+
+                if (typeof window.showCompletionRatingOverlay === 'function') {
+                    window.showCompletionRatingOverlay(
+                        sessionId,
+                        ratingOverlayOptionsForCompletion(curriculumPractice),
+                    );
+                } else if (ratingOverlay) {
+                    ratingOverlay.dataset.sessionId = sessionId || "fallback-id";
+                    ratingOverlay.style.setProperty('display', 'flex', 'important');
+                }
+            } catch (err) {
+                console.error("History Phase 1 Failed:", err);
+                if (ratingOverlay) ratingOverlay.style.setProperty('display', 'flex', 'important');
+            }
+        }
+    } else {
+        const displayPercent = Math.round(completionRatio * 100);
+        alert(`You've completed ${displayPercent}% of the sequence. Hold poses longer to log this session!`);
+    }
+}
+
+function updateTimerUI(remaining, currentPoseSeconds) {
+    const timerEl = document.getElementById("poseTimer");
+    const focusTimerEl = document.getElementById("focusTimer");
+
+    if (timerEl) {
+        if (!window.currentSequence) {
+            timerEl.textContent = "–";
+            if (focusTimerEl) focusTimerEl.textContent = "–";
+        } else {
+            const mm = Math.floor(remaining / 60);
+            const ss = remaining % 60;
+            const timeStr = `${mm}:${String(ss).padStart(2,"0")}`;
+            timerEl.textContent = timeStr;
+            if (focusTimerEl) focusTimerEl.textContent = timeStr;
+            timerEl.className = "";
+            if (remaining <= 5 && remaining > 0) timerEl.className = "critical";
+            else if (remaining <= 10 && remaining > 0) timerEl.className = "warning";
+        }
+    }
+
+    if (window.currentSequence) {
+        const poses = (window.activePlaybackList && window.activePlaybackList.length > 0) ? window.activePlaybackList : (window.currentSequence.poses || []);
+        const poseTime = (p) => (typeof window.getPosePillTime === 'function') ? window.getPosePillTime(p) : (Number(p[1]) || 0);
+        const totalSeconds = poses.reduce((acc, p) => acc + poseTime(p), 0);
+        let secondsLeft = remaining;
+        if (window.needsSecondSide && poses[window.currentIndex]) {
+            secondsLeft += Number(poses[window.currentIndex][1]) || 0;
+        }
+        for (let i = window.currentIndex + 1; i < poses.length; i++) {
+            secondsLeft += poseTime(poses[i]);
+        }
+        const remDisp = document.getElementById("timeRemainingDisplay");
+        const totDisp = document.getElementById("timeTotalDisplay");
+        if (remDisp && typeof window.formatHMS === "function") remDisp.textContent = window.formatHMS(secondsLeft);
+        if (totDisp && typeof window.formatHMS === "function") totDisp.textContent = window.formatHMS(totalSeconds);
+        const bar = document.getElementById("timeProgressFill");
+        if (bar && totalSeconds > 0) {
+            const pct = Math.max(0, Math.min(100, (secondsLeft / totalSeconds) * 100));
+            bar.style.width = `${pct}%`;
+            bar.style.backgroundColor = pct < 10 ? "#ffccbc" : "#c8e6c9";
+        }
+    }
+}
+
+window.updateTimerUI = updateTimerUI;
+window.triggerSequenceEnd = triggerSequenceEnd;

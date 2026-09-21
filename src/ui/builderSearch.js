@@ -1,0 +1,147 @@
+// src/ui/builderSearch.js
+import { $, normaliseText } from "../utils/dom.js";
+
+export function setupBuilderSearch(getAsanaIndex, onResultSelected, onSemicolonCommand) {
+    const searchInput = $("builderSearch");
+    const resultsBox = $("builderSearchResults");
+    if (!searchInput || !resultsBox) return;
+
+    resultsBox.style.display = "none";
+
+    function scoreAsana(asma, query) {
+        const q = normaliseText(query);
+        if (!q) return 0;
+
+        const idStrLoy = String(asma.id || '');
+        const idNormLoy = idStrLoy.toLowerCase();
+
+        // Exact Numeric Match (Prioritize our ID, then GEM plate)
+        if (/^\d+$/.test(q)) {
+            if (idStrLoy.padStart(3, '0') === q.padStart(3, '0')) return 100;
+            // Check if the query number appears in the gem_plate comma-separated list
+            const gemPlate = asma.gem_plate || '';
+            if (gemPlate) {
+                const gemIds = gemPlate.split(',').map(s => s.trim()).filter(Boolean);
+                if (gemIds.some(g => g.padStart(3, '0') === q.padStart(3, '0'))) return 90;
+            }
+        }
+
+        if (idNormLoy === q) return 100;
+
+        const eng  = normaliseText(asma.english || '');
+        const iast = normaliseText(asma.iast || '');
+        const sans = normaliseText(asma.name || '');
+        const plate = normaliseText(String(asma.plates || ''));
+
+        if (eng.startsWith(q) || iast.startsWith(q) || sans.startsWith(q)) return 50;
+        if (eng.includes(q) || iast.includes(q) || sans.includes(q)) return 20;
+        if (plate.includes(q)) return 10;
+        if (idNormLoy.includes(q)) return 5;
+
+        return 0;
+    }
+
+    function getSearchResults(query) {
+        const library = getAsanaIndex();
+        const scored = [];
+        for (const asma of library) {
+            const s = scoreAsana(asma, query);
+            if (s > 0) scored.push({ asma, score: s });
+        }
+        scored.sort((a, b) => b.score - a.score);
+        return { results: scored };
+    }
+
+    searchInput.onkeydown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+        const val = searchInput.value.trim();
+        const isSemicolon = val.includes(';');
+        const upperVal = val.toUpperCase();
+        // Detect numeric batch patterns: comma-separated LOY IDs (e.g. "1,3,4,5,6,7,8"),
+        // ranges (e.g. "3-36"), or mixed (e.g. "1-5,7,9-12")
+        const isNumericBatch = /^\d[\d,\s\-]*$/.test(val) && (val.includes(',') || val.includes('-'));
+        const isBatch = isSemicolon || upperVal.startsWith('GEM:') || isNumericBatch;
+
+        if (isBatch) {
+            e.preventDefault();
+
+            if (typeof onSemicolonCommand === "function") {
+                onSemicolonCommand(val);
+            } else {
+                console.error("FATAL: Batch processing function not found in scope.");
+            }
+
+            searchInput.value = "";
+            resultsBox.style.display = "none";
+            return;
+        }
+
+        // Standard Single Search Fallback
+        if (val.length >= 1) {
+            e.preventDefault();
+            const { results } = getSearchResults(val);
+            if (results.length > 0) {
+                onResultSelected(results[0].asma);
+                searchInput.value = "";
+                resultsBox.style.display = "none";
+            }
+        }
+    }
+};
+
+        searchInput.oninput = () => {
+        const query = searchInput.value.trim();
+        const upperQuery = query.toUpperCase();
+        // Logic Guard: Hide results if it's a batch command (Semicolon, GEM:, or numeric batch like "1,3,4" or "3-36")
+        const isNumericBatch = /^\d[\d,\s\-]*$/.test(query) && (query.includes(',') || query.includes('-'));
+        if (query.length < 1 || query.includes(';') || upperQuery.startsWith('GEM:') || isNumericBatch) {
+            resultsBox.style.display = "none";
+            return;
+        }
+
+        const { results } = getSearchResults(query); // 🔥 Removed undefined source
+
+        if (results.length > 0) {
+            resultsBox.innerHTML = results.slice(0, 15).map(({ asma }) => {
+                const catLabel = asma.category ? asma.category.replace(/^\d+_/, '').replace(/_/g, ' ') : '';
+
+                return `
+                    <div class="search-result-item" data-id="${asma.id}" style="padding:10px; cursor:pointer; border-bottom:1px solid #eee; display:flex; gap:10px; align-items:center;">
+                        <div style="background:#007aff; color:#fff; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.8rem; min-width:28px; text-align:center;">${asma.id}</div>
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${asma.english || asma.name || 'Unknown'}</div>
+                            <div style="font-size:0.75rem; color:#666; font-style:italic; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${asma.iast || asma.name || ''}</div>
+                        </div>
+                        ${catLabel ? `<div style="font-size:0.65rem; color:#999; white-space:nowrap;">${catLabel}</div>` : ''}
+                    </div>
+                `;
+            }).join("");
+
+            resultsBox.style.display = "block";
+
+            const rect = searchInput.getBoundingClientRect();
+            resultsBox.style.width = `${rect.width}px`;
+            resultsBox.style.top = `${rect.bottom + 4}px`;
+            resultsBox.style.left = `${rect.left}px`;
+
+            resultsBox.querySelectorAll('.search-result-item').forEach(item => {
+                item.onclick = () => {
+                    const id = item.dataset.id;
+                    const asma = getAsanaIndex().find(a => String(a.id) === id);
+                    if (asma) {
+                        onResultSelected(asma);
+                        searchInput.value = "";
+                        resultsBox.style.display = "none";
+                        searchInput.focus();
+                    }
+                };
+            });
+        } else {
+            resultsBox.style.display = "none";
+        }
+    };
+
+    searchInput.onblur = () => {
+        setTimeout(() => { resultsBox.style.display = "none"; }, 250);
+    };
+}

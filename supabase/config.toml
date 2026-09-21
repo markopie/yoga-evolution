@@ -1,0 +1,83 @@
+# Minimal local Supabase CLI config for this repo.
+# Keep secrets in the root .env file; do not add them here.
+project_id = "Yoga-App-Evolution"
+
+[api]
+enabled = true
+port = 54421
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54422
+shadow_port = 54420
+major_version = 17
+
+[db.migrations]
+enabled = true
+schema_paths = []
+
+[db.seed]
+enabled = true
+sql_paths = ["./seed.local.sql"]
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54423
+api_url = "http://127.0.0.1"
+
+[inbucket]
+enabled = true
+port = 54424
+
+[storage]
+enabled = true
+file_size_limit = "50MiB"
+
+[auth]
+enabled = true
+enable_anonymous_sign_ins = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://127.0.0.1:5173/**", "http://localhost:5173/**", "http://127.0.0.1:4173/**", "http://localhost:4173/**", "http://127.0.0.1:3000/**", "http://localhost:3000/**"]
+
+[auth.mfa]
+max_enrolled_factors = 10
+
+[auth.mfa.totp]
+enroll_enabled = false
+verify_enabled = false
+
+[auth.mfa.web_authn]
+enroll_enabled = false
+verify_enabled = false
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[auth.passkey]
+enabled = false
+
+[auth.webauthn]
+rp_display_name = "Yoga Evolution"
+rp_id = "localhost"
+rp_origins = ["http://localhost:3000"]
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+
+[functions.account-recovery-request]
+verify_jwt = false
+
+[functions.account-recovery-complete]
+verify_jwt = false
+
+[analytics]
+enabled = true
+port = 54427
+backend = "postgres"
