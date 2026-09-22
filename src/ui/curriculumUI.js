@@ -68,16 +68,6 @@ function renderField(label, value) {
     `;
 }
 
-function formatDuration(value) {
-    const duration = Number(value);
-    if (!Number.isFinite(duration) || duration <= 0) return null;
-    const minutes = Math.round(duration);
-    if (minutes < 60) return `${minutes} min`;
-    const hours = Math.floor(minutes / 60);
-    const remainder = minutes % 60;
-    return remainder ? `${hours} hr ${remainder} min` : `${hours} hr`;
-}
-
 function renderOverviewItem(label, value) {
     if (value == null || value === '') return '';
     return `
@@ -157,25 +147,7 @@ function compositionSummary(parts) {
 }
 
 function practiceSummary(parts) {
-    return parts
-        .map((part) => {
-            const book = part.source_name || String(part.category || '').split('>')[0].trim();
-            return book ? `${part.title} (${book})` : part.title;
-        })
-        .join(' + ');
-}
-
-function compositionDurationMinutes(parts) {
-    if (typeof window.getExpandedPoses !== 'function' || typeof window.getPosePillTime !== 'function') return null;
-    let totalSeconds = 0;
-    parts.forEach((part) => {
-        if (!part.course) return;
-        const expanded = window.getExpandedPoses(part.course);
-        expanded.forEach((pose) => {
-            totalSeconds += window.getPosePillTime(pose, part.course);
-        });
-    });
-    return Math.round((totalSeconds / 60) * 100) / 100;
+    return parts.map((part) => part.title).join(' + ');
 }
 
 function completionItemsForPractice(practice = window.currentCurriculumPractice) {
@@ -229,6 +201,12 @@ function updateCurriculumLibraryLock() {
 
     if (reviewBtn) {
         reviewBtn.style.display = locked && isSequenceReady(window.currentCurriculumPractice) ? '' : 'none';
+    }
+
+    const modeBadge = $('practiceModeBadge');
+    if (modeBadge) {
+        modeBadge.textContent = locked ? 'Curriculum practice' : 'Manual practice';
+        modeBadge.style.display = window.currentSequence ? '' : 'none';
     }
 }
 
@@ -303,10 +281,9 @@ function renderPracticeDetails(practice) {
     const parts = enrichPracticeComposition(practice);
     const composedSummary = compositionSummary(parts);
     const readablePracticeSummary = practiceSummary(parts);
-    const totalDuration = parts.length > 1 ? compositionDurationMinutes(parts) : payload.total_duration_minutes;
-    const durationLabel = formatDuration(totalDuration);
+    const totalDuration = payload.total_duration_minutes;
     summary.textContent = readablePracticeSummary
-        ? `Week ${practice.week_number}, Day ${practice.day_number}: ${readablePracticeSummary}`
+        ? `Week ${practice.week_number} · Day ${practice.day_number} · ${readablePracticeSummary}`
         : `Week ${practice.week_number}, Day ${practice.day_number}: ${title}`;
 
     if (overview) {
@@ -315,10 +292,8 @@ function renderPracticeDetails(practice) {
             .filter(Boolean))];
         const practiceTypes = [...new Set(parts.map(part => roleLabel(part.role)).filter(Boolean))];
         const overviewItems = [
-            ['Today', `Week ${practice.week_number}, Day ${practice.day_number}`],
-            ['Books', bookLabels],
-            ['Includes', practiceTypes],
-            ['Duration', durationLabel],
+            ['Source', bookLabels],
+            ...(parts.length > 1 ? [['Includes', practiceTypes]] : []),
             ['Recovery', practice.recovery_type && prettifyCurriculumToken(practice.recovery_type)],
         ];
         overview.innerHTML = overviewItems.map(([label, value]) => renderOverviewItem(label, value)).join('');

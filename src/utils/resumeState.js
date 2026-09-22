@@ -5,6 +5,7 @@ export function resumeCourseId(course) {
 
 export function buildResumeState({
     currentSequence,
+    currentCurriculumPractice = null,
     sequenceIdx,
     poseIdx,
     focusDuration,
@@ -12,11 +13,17 @@ export function buildResumeState({
     timestamp = Date.now(),
 }) {
     const sequenceId = resumeCourseId(currentSequence);
+    const curriculumNodeId = currentCurriculumPractice?.curriculum_node_id ?? null;
     return {
+        mode: curriculumNodeId == null ? 'manual' : 'curriculum',
         sequenceIdx: sequenceIdx || "",
         sequenceId,
         poseIdx,
         sequenceTitle: currentSequence?.title || "",
+        curriculumNodeId,
+        curriculumSlug: currentCurriculumPractice?.curriculum_slug || '',
+        curriculumWeek: currentCurriculumPractice?.week_number ?? null,
+        curriculumDay: currentCurriculumPractice?.day_number ?? null,
         focusDuration,
         completionTracker,
         timestamp,

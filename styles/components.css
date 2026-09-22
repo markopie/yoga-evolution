@@ -158,6 +158,14 @@ button.tiny {
     flex-wrap: wrap;
 }
 
+.curriculum-practice-panel__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .curriculum-practice-panel__eyebrow,
 .manual-library-label {
     font-size: 0.68rem;
@@ -190,6 +198,29 @@ button.tiny {
     background: #f5f5f7;
 }
 
+.practice-mode-badge {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 3px 8px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    color: var(--color-text-secondary);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.curriculum-practice-panel__review-button {
+    background: #1d1d1f;
+    border-color: #1d1d1f;
+    color: #fff;
+}
+
+.curriculum-practice-panel__review-button:hover {
+    background: #333;
+}
+
 .curriculum-practice-panel__map-button {
     border-color: var(--color-border);
     color: var(--color-text-main);
@@ -200,6 +231,7 @@ button.tiny {
     .curriculum-practice-panel__main { align-items: stretch; }
     .curriculum-practice-panel__main > div:first-child { flex: 1 0 100%; }
     .curriculum-practice-panel__button,
+    .curriculum-practice-panel__review-button,
     .curriculum-practice-panel__map-button,
     .curriculum-practice-panel__exit-button {
         flex: 1 1 140px;
@@ -212,6 +244,10 @@ button.tiny {
         white-space: normal;
         overflow-wrap: anywhere;
         line-height: 1.25;
+    }
+
+    .curriculum-practice-panel__actions {
+        width: 100%;
     }
 }
 

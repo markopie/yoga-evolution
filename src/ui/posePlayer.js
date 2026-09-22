@@ -547,21 +547,13 @@ function setPose(idx, keepSamePose = false) {
         }
     }
 
-    // 🌟 FOCUS MODE PROP LABELS (Accessibility & Audio Sync)
-    const focusPropWrap = document.getElementById("focusPropIndicator");
-    if (focusPropWrap) {
-        const propNames = activeProps.map(pid => registry[pid]?.label || pid).filter(Boolean).join(", ");
-        const propIcons = activeProps.map(pid => registry[pid]?.icon || '❓').filter(Boolean).join(" ");
-        focusPropWrap.innerHTML = activeProps.length > 0 ? `<div style="background:rgba(255,255,255,0.95); padding:8px 18px; border-radius:24px; font-weight:700; color:#1d1d1f; border:1px solid #d2d2d7; display:flex; align-items:center; gap:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1);">${propIcons} <span style="font-size:0.95rem; opacity:0.9;">${propNames}</span></div>` : "";
-        focusPropWrap.style.display = activeProps.length > 0 ? "flex" : "none";
-    }
-
     if (overlayImageWrap) {
         overlayImageWrap.replaceChildren(window.renderTeachingCard({
             asana, poseName: baseName, poseId: lookupId, variation: referenceVariation,
             side: isBilateral ? (window.getCurrentSide() === 'right' ? 'Right' : 'Left') : '',
             timing: rangeText, props: activeProps.map(pid => registry[pid]?.label || pid), note: actualNote,
-            onPlayAudio: asana ? () => window.playAsanaAudio(asana, null, false, null, matchedVariationKey, false, activeProps, actualNote) : null, compact: true,
+            onPlayAudio: null, compact: true,
+            focusMode: true,
         }));
     }
 

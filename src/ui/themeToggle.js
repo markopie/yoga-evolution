@@ -56,13 +56,14 @@ class ThemeManager {
         this.button.className = 'theme-toggle tiny';
         this.button.setAttribute('aria-label', 'Toggle dark mode');
         this.button.setAttribute('title', 'Toggle dark mode');
-        this.button.style.marginRight = '12px';
 
         this.button.addEventListener('click', () => this.toggleTheme());
 
         const signOutBtn = document.getElementById('signOutBtn');
-        if (signOutBtn && signOutBtn.parentElement) {
-            signOutBtn.parentElement.insertBefore(this.button, signOutBtn);
+        const settingsButton = document.getElementById('settingsToggleButton');
+        const insertionTarget = settingsButton || signOutBtn;
+        if (insertionTarget && insertionTarget.parentElement) {
+            insertionTarget.parentElement.insertBefore(this.button, insertionTarget);
         }
 
         this.updateButton();

@@ -137,29 +137,33 @@
     min-height: 0;
 }
 
-.teaching-card { width: min(100%, 640px); padding: 16px; border: 1px solid var(--color-border, #d2d2d7); border-radius: 12px; background: var(--color-bg-surface, #fff); box-sizing: border-box; }
+.teaching-card { width: min(100%, 760px); padding: 20px; border: 1px solid var(--color-border, #d2d2d7); border-radius: 12px; background: var(--color-bg-surface, #fff); box-sizing: border-box; }
 .teaching-card__name { font-size: 1.35rem; font-weight: 700; overflow-wrap: anywhere; }
 .teaching-card__secondary, .teaching-card__offline { margin-top: 4px; color: var(--color-text-secondary, #666); font-size: .9rem; }
+.teaching-card__iast { font-style: italic; }
+.teaching-card__devanagari { margin-top: 4px; font-family: 'Noto Sans Devanagari', sans-serif; font-size: 1.16rem; color: var(--color-text-primary, #1d1d1f); }
 .teaching-card__meta, .teaching-card__context { margin-top: 10px; line-height: 1.45; font-size: .9rem; }
 .teaching-card__reference { margin-top: 12px; }
 .teaching-card__audio { margin-left: 6px; vertical-align: middle; }
 .teaching-card-group { display: grid; gap: 10px; margin-top: 10px; }
-#focusImageWrap .teaching-card { max-height: 100%; overflow: auto; text-align: center; }
+#focusImageWrap .teaching-card { width: min(100%, 760px); max-height: 100%; overflow: auto; text-align: center; padding: 28px; }
+#focusImageWrap .teaching-card__name { font-size: 1.55rem; }
+#focusImageWrap .teaching-card__devanagari { font-size: 1.2rem; }
 
 #focusPauseBtn {
-    background-color: #d32f2f;
+    background-color: #1d1d1f;
     color: white;
     font-size: 1.5rem;
     font-weight: bold;
     padding: 15px 40px;
     border-radius: 50px;
     border: none;
-    box-shadow: 0 4px 15px rgba(211, 47, 47, 0.4);
+    box-shadow: 0 4px 15px rgba(29, 29, 31, 0.25);
     cursor: pointer;
     min-width: 200px;
 }
 
-#focusPauseBtn:hover { background-color: #b71c1c; transform: scale(1.02); }
+#focusPauseBtn:hover { background-color: #333; transform: scale(1.02); }
 #focusPauseBtn:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
 
 @media (max-width: 600px), (max-height: 650px) {

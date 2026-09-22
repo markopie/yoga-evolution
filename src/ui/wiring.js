@@ -321,6 +321,7 @@ function setupSequenceSelector() {
 
         if ($("statusText")) $("statusText").textContent = "Ready to Start";
         if ($("startStopBtn")) $("startStopBtn").textContent = "Start";
+        if (typeof window.updateCurriculumLibraryLock === 'function') window.updateCurriculumLibraryLock();
     });
 
     if (!document.getElementById("quickEditBtn")) {

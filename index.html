@@ -78,10 +78,13 @@
              <strong>Yoga Sequences</strong>
              <div id="activeCategoryTitle" style="font-size: 0.8rem; color: #888; margin-top:-2px; display:none;"></div>
           </div>
-          <div style="display:flex; align-items:center;">
+          <div class="header-account-controls" style="display:flex; align-items:center;">
              <button id="syncStatusButton" class="sync-status-pill" type="button" hidden aria-live="polite" aria-controls="appSettingsPanel"></button>
              <span id="connectionModeDisplay" class="connection-mode-badge" hidden></span>
-             <span id="userEmailDisplay" style="font-size: 0.75rem; color: #888; margin-right: 10px;"></span>
+             <span id="userEmailDisplay" style="font-size: 0.75rem; color: #888;"></span>
+             <button id="settingsToggleButton" class="tiny settings-toggle" type="button" aria-label="Open Settings" aria-controls="appSettingsPanel" aria-expanded="false" title="Open Settings">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m19.43 12.98.04-.98-.04-.98 2.11-1.65-2-3.46-2.49 1a7.2 7.2 0 0 0-1.7-.98L15 3h-4l-.35 2.93c-.6.24-1.17.57-1.7.98l-2.49-1-2 3.46 2.11 1.65a7.2 7.2 0 0 0 0 1.96l-2.11 1.65 2 3.46 2.49-1c.53.4 1.1.74 1.7.98L11 21h4l.35-2.93c.6-.24 1.17-.57 1.7-.98l2.49 1 2-3.46-2.11-1.65Z M13 15.5A3.5 3.5 0 1 1 13 8a3.5 3.5 0 0 1 0 7.5Z" fill="currentColor"/></svg>
+             </button>
              <button id="signOutBtn" class="tiny" style="font-size:0.75rem; color:#666; background:transparent; border:1px solid #ddd;" title="Choose another profile">Switch profile</button>
           </div>
        </div>
@@ -93,60 +96,20 @@
                 <strong>Today's Practice</strong>
                 <div id="curriculumPracticeSummary" class="curriculum-practice-panel__summary">Ready when you are.</div>
              </div>
-             <button id="startTodayPracticeBtn" type="button" class="curriculum-practice-panel__button">Start Today's Practice</button>
-             <button id="exitCurriculumPracticeBtn" type="button" class="tiny curriculum-practice-panel__exit-button" style="display:none;">Exit Practice</button>
-             <button id="curriculumReviewBtn" type="button" class="tiny" style="display:none;">Review</button>
-             <button id="curriculumMapBtn" type="button" class="tiny curriculum-practice-panel__map-button" aria-haspopup="dialog">Curriculum Map</button>
-             <button id="curriculumDetailsToggleBtn" type="button" class="tiny curriculum-practice-panel__dev-button" style="display:none;" aria-expanded="false" aria-controls="curriculumPracticeDetails">Details</button>
-             <button id="markCurriculumCompleteBtn" type="button" class="tiny curriculum-practice-panel__dev-button" style="display:none;">Mark Node Complete</button>
-             <button id="undoCurriculumCompletionBtn" type="button" class="tiny curriculum-practice-panel__dev-button curriculum-practice-panel__dev-button--danger" style="display:none;">Undo Curriculum Completion</button>
-             <button id="resetCurriculumTestProgressBtn" type="button" class="tiny curriculum-practice-panel__dev-button curriculum-practice-panel__dev-button--danger" style="display:none;">Reset Curriculum Test Progress</button>
+             <div class="curriculum-practice-panel__actions">
+               <button id="startTodayPracticeBtn" type="button" class="curriculum-practice-panel__button">Start Today's Practice</button>
+               <button id="exitCurriculumPracticeBtn" type="button" class="tiny curriculum-practice-panel__exit-button" style="display:none;">Exit Practice</button>
+               <button id="curriculumReviewBtn" type="button" class="tiny curriculum-practice-panel__review-button" style="display:none;">Review Practice</button>
+               <button id="curriculumMapBtn" type="button" class="tiny curriculum-practice-panel__map-button" aria-haspopup="dialog">Curriculum Map</button>
+               <button id="curriculumDetailsToggleBtn" type="button" class="tiny curriculum-practice-panel__dev-button" style="display:none;" aria-expanded="false" aria-controls="curriculumPracticeDetails">Details</button>
+               <button id="markCurriculumCompleteBtn" type="button" class="tiny curriculum-practice-panel__dev-button" style="display:none;">Mark Node Complete</button>
+               <button id="undoCurriculumCompletionBtn" type="button" class="tiny curriculum-practice-panel__dev-button curriculum-practice-panel__dev-button--danger" style="display:none;">Undo Curriculum Completion</button>
+               <button id="resetCurriculumTestProgressBtn" type="button" class="tiny curriculum-practice-panel__dev-button curriculum-practice-panel__dev-button--danger" style="display:none;">Reset Curriculum Test Progress</button>
+             </div>
           </div>
           <div id="curriculumPracticeOverview" class="curriculum-practice-panel__overview" style="display:none;"></div>
           <div id="curriculumPracticeDetails" class="curriculum-practice-panel__details" style="display:none;"></div>
        </section>
-
-       <details id="appSettingsPanel" class="app-settings-panel">
-          <summary>Settings</summary>
-          <section id="offlineMediaPanel" class="offline-media-panel" aria-labelledby="offlineStorageTitle">
-          <div class="offline-media-panel__heading">
-             <h2 id="offlineStorageTitle">Offline &amp; Storage</h2>
-             <span class="offline-media-panel__status" data-offline-status>Checking…</span>
-          </div>
-          <div class="offline-media-panel__body">
-             <progress value="0" max="1" aria-label="Offline media download progress"></progress>
-             <div class="offline-media-panel__detail" data-offline-detail>Checking browser storage…</div>
-             <div class="offline-media-panel__actions">
-                <button type="button" data-offline-download>Download all media</button>
-                <button type="button" class="secondary" data-offline-cancel hidden>Pause</button>
-                <button type="button" class="secondary" data-offline-remove>Remove all</button>
-             </div>
-             <p class="offline-media-panel__note">
-                Downloads are kept separate from app updates. Browser storage may still be cleared by your device.
-             </p>
-          </div>
-          </section>
-          <section id="profileSettingsPanel" class="settings-section" aria-labelledby="profileSettingsTitle">
-             <h2 id="profileSettingsTitle">Your profile</h2>
-             <form id="profileNameForm" class="settings-form">
-                <label for="profileNameInput">Name on this device</label>
-                <input id="profileNameInput" maxlength="60" required>
-                <button type="submit">Save name</button>
-             </form>
-             <p id="profileSettingsMessage" role="status"></p>
-             <button id="exportProfileBtn" type="button">Export profile</button>
-             <p>Save a profile file, then import it on another device. Each copy has its own progress. Connect to the Yoga server when creating, importing, or exporting a profile.</p>
-          </section>
-          <section id="installationGuidePanel" class="settings-section" aria-labelledby="installationGuideTitle">
-             <h2 id="installationGuideTitle">Install on iPhone</h2>
-             <ol class="installation-steps">
-                <li>Open Yoga Evolution in Safari.</li>
-                <li>Choose Share → Add to Home Screen.</li>
-             </ol>
-          </section>
-       </details>
-
-
 
        <details id="manualLibraryPanel" class="manual-library-panel">
           <summary class="manual-library-panel__summary">
@@ -207,6 +170,7 @@
              <button id="completeBtn" type="button" style="display:none">✓ Complete</button>
           </div>
           
+          <span id="practiceModeBadge" class="practice-mode-badge" style="display:none;"></span>
           <span class="muted" id="statusText" style="display:block; margin-top:5px;">Loading…</span>
        </div>
     </header>
@@ -255,6 +219,47 @@
           </div>
        </div>
      </main>
+
+       <details id="appSettingsPanel" class="app-settings-panel app-settings-panel--secondary">
+          <summary>Settings</summary>
+          <button id="settingsCloseButton" class="settings-close" type="button" aria-label="Close Settings" title="Close Settings">✕</button>
+          <section id="offlineMediaPanel" class="offline-media-panel" aria-labelledby="offlineStorageTitle">
+          <div class="offline-media-panel__heading">
+             <h2 id="offlineStorageTitle">Offline &amp; Storage</h2>
+             <span class="offline-media-panel__status" data-offline-status>Checking…</span>
+          </div>
+          <div class="offline-media-panel__body">
+             <progress value="0" max="1" aria-label="Offline media download progress"></progress>
+             <div class="offline-media-panel__detail" data-offline-detail>Checking browser storage…</div>
+             <div class="offline-media-panel__actions">
+                <button type="button" data-offline-download>Download all media</button>
+                <button type="button" class="secondary" data-offline-cancel hidden>Pause</button>
+                <button type="button" class="secondary" data-offline-remove>Remove all</button>
+             </div>
+             <p class="offline-media-panel__note">
+                Downloads are kept separate from app updates. Browser storage may still be cleared by your device.
+             </p>
+          </div>
+          </section>
+          <section id="profileSettingsPanel" class="settings-section" aria-labelledby="profileSettingsTitle">
+             <h2 id="profileSettingsTitle">Your profile</h2>
+             <form id="profileNameForm" class="settings-form">
+                <label for="profileNameInput">Name on this device</label>
+                <input id="profileNameInput" maxlength="60" required>
+                <button type="submit">Save name</button>
+             </form>
+             <p id="profileSettingsMessage" role="status"></p>
+             <button id="exportProfileBtn" type="button">Export profile</button>
+             <p>Save a profile file, then import it on another device. Each copy has its own progress. Connect to the Yoga server when creating, importing, or exporting a profile.</p>
+          </section>
+          <section id="installationGuidePanel" class="settings-section" aria-labelledby="installationGuideTitle">
+             <h2 id="installationGuideTitle">Install on iPhone</h2>
+             <ol class="installation-steps">
+                <li>Open Yoga Evolution in Safari.</li>
+                <li>Choose Share → Add to Home Screen.</li>
+             </ol>
+          </section>
+       </details>
   </div>
 
   <div class="modal-backdrop" id="editCourseBackdrop" style="display:none;">

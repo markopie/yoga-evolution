@@ -4,14 +4,14 @@ project_id = "Yoga-App-Evolution"
 
 [api]
 enabled = true
-port = 54421
+port = 55421
 schemas = ["public", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
 [db]
-port = 54422
-shadow_port = 54420
+port = 55422
+shadow_port = 55420
 major_version = 17
 
 [db.migrations]
@@ -27,12 +27,12 @@ enabled = true
 
 [studio]
 enabled = true
-port = 54423
+port = 55423
 api_url = "http://127.0.0.1"
 
 [inbucket]
 enabled = true
-port = 54424
+port = 55424
 
 [storage]
 enabled = true
@@ -79,5 +79,5 @@ verify_jwt = false
 
 [analytics]
 enabled = true
-port = 54427
+port = 55427
 backend = "postgres"

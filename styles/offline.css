@@ -63,6 +63,80 @@
     background: var(--color-bg-surface);
 }
 
+.app-settings-panel--secondary {
+    display: none;
+    margin: 0;
+}
+
+.app-settings-panel--secondary[open] {
+    display: block;
+    position: fixed;
+    top: 68px;
+    right: 18px;
+    width: min(420px, calc(100vw - 36px));
+    max-height: calc(100vh - 92px);
+    overflow-y: auto;
+    z-index: 1000;
+    border-radius: 12px;
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+}
+
+.settings-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
+    padding: 6px 9px;
+    color: var(--color-text-secondary);
+    background: transparent;
+    border-color: var(--color-border);
+}
+
+.header-account-controls {
+    gap: 12px;
+}
+
+.settings-toggle svg {
+    width: 16px;
+    height: 16px;
+}
+
+.settings-toggle:hover {
+    color: var(--color-text-primary);
+    background: var(--color-bg-hover);
+}
+
+.settings-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 4px 8px;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+}
+
+.settings-close:hover {
+    color: var(--color-text-primary);
+}
+
+.app-settings-panel--secondary[open] > summary {
+    padding-right: 52px;
+}
+
+@media (max-width: 600px) {
+    .app-settings-panel--secondary[open] {
+        top: 58px;
+        right: 10px;
+        width: calc(100vw - 20px);
+        max-height: calc(100vh - 72px);
+    }
+}
+
 .app-settings-panel > summary {
     min-height: 44px;
     padding: 10px 14px;

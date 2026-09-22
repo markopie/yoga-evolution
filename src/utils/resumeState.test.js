@@ -16,6 +16,26 @@ describe('resume state helpers', () => {
     assert.strictEqual(state.sequenceIdx, '0');
     assert.strictEqual(state.sequenceId, 'course-42');
     assert.strictEqual(state.sequenceTitle, 'Stable Course');
+    assert.strictEqual(state.mode, 'manual');
+  });
+
+  test('stores curriculum resume context separately from the source sequence', () => {
+    const state = buildResumeState({
+      currentSequence: { id: 'course-42', title: 'Course 42' },
+      currentCurriculumPractice: {
+        curriculum_node_id: 77,
+        curriculum_slug: 'iyengar-curriculum',
+        week_number: 1,
+        day_number: 2,
+      },
+      poseIdx: 3,
+    });
+
+    assert.strictEqual(state.mode, 'curriculum');
+    assert.strictEqual(state.curriculumNodeId, 77);
+    assert.strictEqual(state.curriculumSlug, 'iyengar-curriculum');
+    assert.strictEqual(state.curriculumWeek, 1);
+    assert.strictEqual(state.curriculumDay, 2);
   });
 
   test('restores by stable id after course order changes', () => {

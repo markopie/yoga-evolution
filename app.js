@@ -148,6 +148,7 @@ function saveCurrentProgress() {
 
     const state = buildResumeState({
         currentSequence: window.currentSequence,
+        currentCurriculumPractice: window.currentCurriculumPractice,
         sequenceIdx: document.getElementById("sequenceSelect")?.value || "",
         poseIdx: window.currentIndex,
         focusDuration: activeMs,
@@ -172,7 +173,10 @@ function showResumePrompt(state) {
 
     const resolved = resolveResumeCourse(window.courses, state);
     const seq = resolved.course;
-    const seqName = seq ? seq.title : "your previous session";
+    const isCurriculumResume = state?.mode === 'curriculum' && state?.curriculumNodeId != null;
+    const seqName = isCurriculumResume
+        ? `curriculum practice${state.curriculumWeek && state.curriculumDay ? ` — Week ${state.curriculumWeek}, Day ${state.curriculumDay}` : ''}`
+        : (seq ? seq.title : "your previous session");
 
     let poseName = `pose ${state.poseIdx + 1}`;
     if (seq?.poses) {
@@ -185,30 +189,43 @@ function showResumePrompt(state) {
         }
     }
 
-    banner.innerHTML = `<span>Resume <b>${seqName}</b> at <b>${poseName}</b>?</span><button id="resumeYes" style="background:#4CAF50; color:white; border:none; padding:5px 12px; border-radius:15px; cursor:pointer;">Yes</button><button id="resumeNo" style="background:transparent; color:#ccc; border:none; cursor:pointer;">✕</button>`;
+    const resumeLabel = isCurriculumResume ? 'Resume curriculum practice' : 'Resume manual practice';
+    banner.innerHTML = `<span>${resumeLabel}: <b>${seqName}</b> at <b>${poseName}</b>?</span><button id="resumeYes" style="background:#4CAF50; color:white; border:none; padding:5px 12px; border-radius:15px; cursor:pointer;">Yes</button><button id="resumeNo" style="background:transparent; color:#ccc; border:none; cursor:pointer;">✕</button>`;
     document.body.appendChild(banner);
 
     banner.querySelector("#resumeYes").onclick = () => {
+        const restorePlayback = () => {
+            if (window.currentSequence && typeof window.setPose === "function") {
+                if (state.focusDuration && window.playbackEngine) {
+                    window.playbackEngine._activePracticeMs = state.focusDuration;
+                    if (typeof window.playbackEngine.syncTimer === 'function') window.playbackEngine.syncTimer();
+                }
+                if (state.completionTracker) {
+                    window.completionTracker = state.completionTracker;
+                    if (typeof window.setCompletionTracker === 'function') {
+                        window.setCompletionTracker(state.completionTracker);
+                    }
+                }
+                window.setPose(state.poseIdx);
+            }
+            banner.remove();
+        };
+
+        if (isCurriculumResume && typeof window.startTodayPractice === 'function') {
+            void window.startTodayPractice(state.curriculumNodeId).then(restorePlayback).catch((error) => {
+                console.error('Curriculum resume failed:', error);
+                banner.remove();
+            });
+            return;
+        }
+
         const sel = document.getElementById("sequenceSelect");
         if (sel) {
             sel.value = resolved.index >= 0 ? String(resolved.index) : (state.sequenceIdx || "");
             sel.dispatchEvent(new Event('change'));
 
             setTimeout(() => {
-                if (window.currentSequence && typeof window.setPose === "function") {
-                    if (state.focusDuration && window.playbackEngine) {
-                        window.playbackEngine._activePracticeMs = state.focusDuration;
-                        if (typeof window.playbackEngine.syncTimer === 'function') window.playbackEngine.syncTimer();
-                    }
-                    if (state.completionTracker) {
-                        window.completionTracker = state.completionTracker;
-                        if (typeof window.setCompletionTracker === 'function') {
-                            window.setCompletionTracker(state.completionTracker);
-                        }
-                    }
-                    window.setPose(state.poseIdx);
-                }
-                banner.remove();
+                restorePlayback();
             }, 500);
         }
     };

@@ -1,4 +1,4 @@
-import { displayName, prefersIAST } from '../utils/format.js';
+import { displayName } from '../utils/format.js';
 
 export function googleImageReferenceUrl(asana, variationName = '') {
     const name = String(asana?.iast || asana?.canonical_name || asana?.english || asana?.name || '').trim();
@@ -15,23 +15,29 @@ export function openImageReferences(asana, variationName = '', opener = window.o
     return url;
 }
 
-export function renderTeachingCard({ asana, poseName = '', poseId = '', variation = '', side = '', timing = '', props = [], note = '', onPlayAudio = null, compact = false } = {}) {
+export function renderTeachingCard({ asana, poseName = '', poseId = '', variation = '', side = '', timing = '', props = [], note = '', onPlayAudio = null, compact = false, focusMode = false } = {}) {
     const card = document.createElement('section');
-    card.className = `teaching-card${compact ? ' teaching-card--compact' : ''}`;
+    card.className = `teaching-card${compact ? ' teaching-card--compact' : ''}${focusMode ? ' teaching-card--focus' : ''}`;
     const primary = poseName || displayName(asana) || 'Pose';
-    const secondary = asana && (prefersIAST() ? asana.english : asana.iast);
+    const secondary = asana?.iast && asana.iast !== primary ? asana.iast : '';
     const name = document.createElement('div');
     name.className = 'teaching-card__name';
     name.textContent = primary;
     card.appendChild(name);
     if (secondary && secondary !== primary) {
         const secondaryName = document.createElement('div');
-        secondaryName.className = 'teaching-card__secondary';
+        secondaryName.className = 'teaching-card__secondary teaching-card__iast';
         secondaryName.textContent = secondary;
         card.appendChild(secondaryName);
     }
-    const fields = [[poseId && `ID: ${poseId}`], [side && `Side: ${side}`], [variation && `Variation: ${variation}`], [timing], [props.length && `Props: ${props.join(', ')}`]].flat().filter(Boolean);
-    if (fields.length) {
+    if (asana?.devanagari) {
+        const devanagari = document.createElement('div');
+        devanagari.className = 'teaching-card__devanagari';
+        devanagari.textContent = asana.devanagari;
+        card.appendChild(devanagari);
+    }
+    const fields = [[!focusMode && poseId && `ID: ${poseId}`], [side && `Side: ${side}`], [variation && `Variation: ${variation}`], [!focusMode && timing], [props.length && `Props: ${props.join(', ')}`]].flat().filter(Boolean);
+    if (fields.length || onPlayAudio) {
         const meta = document.createElement('div');
         meta.className = 'teaching-card__meta';
         meta.textContent = fields.join(' • ');
@@ -58,19 +64,20 @@ export function renderTeachingCard({ asana, poseName = '', poseId = '', variatio
         card.appendChild(context);
     }
     const url = googleImageReferenceUrl(asana || { english: poseName }, variation);
-    if (url && navigator.onLine) {
+    if (!focusMode && url && navigator.onLine) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'tiny teaching-card__reference';
         button.textContent = 'View image references ↗';
         button.setAttribute('aria-label', 'View image references. Opens Google Images in a new tab');
+        button.title = 'Open Google Images references for this asana';
         button.addEventListener('click', (event) => {
             event.preventDefault();
             event.stopPropagation();
             openImageReferences(asana || { english: poseName }, variation);
         });
         card.appendChild(button);
-    } else if (url) {
+    } else if (!focusMode && url) {
         const offline = document.createElement('div');
         offline.className = 'teaching-card__offline';
         offline.textContent = 'Image references require an internet connection.';

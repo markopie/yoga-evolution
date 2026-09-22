@@ -1,5 +1,6 @@
 .env
 supabase/.temp/
+supabase/.branches/
 backups/
 reports/storage/
 docs/schemas/supabase_schema.json

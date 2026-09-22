@@ -17,9 +17,11 @@ function showToast(message) {
 
 export function setupSyncStatusUI() {
     const button = document.getElementById('syncStatusButton');
+    const settingsToggle = document.getElementById('settingsToggleButton');
     const settings = document.getElementById('appSettingsPanel');
     const detail = document.getElementById('offlineSyncDetail');
     const retry = document.getElementById('retryProgressSyncBtn');
+    const settingsClose = document.getElementById('settingsCloseButton');
     if (!button) return;
     const render = (status = getSyncStatus()) => {
         const label = syncStatusLabel(status);
@@ -41,10 +43,36 @@ export function setupSyncStatusUI() {
             ].includes(status.state);
         }
     };
-    button.addEventListener('click', () => {
+    const openSettings = () => {
         if (!settings) return;
         settings.open = true;
-        settings.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        settingsToggle?.setAttribute('aria-expanded', 'true');
+    };
+    button.addEventListener('click', openSettings);
+    settingsToggle?.addEventListener('click', () => {
+        if (!settings) return;
+        settings.open = !settings.open;
+        settingsToggle.setAttribute('aria-expanded', String(settings.open));
+    });
+    settingsClose?.addEventListener('click', () => {
+        if (!settings) return;
+        settings.open = false;
+        settingsToggle?.setAttribute('aria-expanded', 'false');
+        settingsToggle?.focus();
+    });
+    settings.addEventListener('toggle', () => {
+        settingsToggle?.setAttribute('aria-expanded', String(settings.open));
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && settings.open) {
+            settings.open = false;
+            settingsToggle?.focus();
+        }
+    });
+    document.addEventListener('click', (event) => {
+        if (!settings.open || settings.contains(event.target) || settingsToggle?.contains(event.target)) return;
+        settings.open = false;
+        settingsToggle?.setAttribute('aria-expanded', 'false');
     });
     retry?.addEventListener('click', async () => {
         retry.disabled = true;
