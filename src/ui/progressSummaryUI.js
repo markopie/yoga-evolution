@@ -41,6 +41,11 @@ export function setupProgressSummary() {
 
     progressFillContainer.style.cursor = 'pointer';
     progressFillContainer.addEventListener('click', renderProgressSummaryModal);
+    progressFillContainer.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        renderProgressSummaryModal();
+    });
 }
 
 function renderProgressSummaryModal() {

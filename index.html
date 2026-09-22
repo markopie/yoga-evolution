@@ -95,6 +95,7 @@
              </div>
              <button id="startTodayPracticeBtn" type="button" class="curriculum-practice-panel__button">Start Today's Practice</button>
              <button id="exitCurriculumPracticeBtn" type="button" class="tiny curriculum-practice-panel__exit-button" style="display:none;">Exit Practice</button>
+             <button id="curriculumReviewBtn" type="button" class="tiny" style="display:none;">Review</button>
              <button id="curriculumMapBtn" type="button" class="tiny curriculum-practice-panel__map-button" aria-haspopup="dialog">Curriculum Map</button>
              <button id="curriculumDetailsToggleBtn" type="button" class="tiny curriculum-practice-panel__dev-button" style="display:none;" aria-expanded="false" aria-controls="curriculumPracticeDetails">Details</button>
              <button id="markCurriculumCompleteBtn" type="button" class="tiny curriculum-practice-panel__dev-button" style="display:none;">Mark Node Complete</button>
@@ -189,7 +190,7 @@
           
           <span class="pill" id="poseTimer">–</span>
           
-          <div id="timeDashboard" class="time-capsule" title="Time Remaining / Total Time">
+          <div id="timeDashboard" class="time-capsule" role="button" tabindex="0" aria-label="Time remaining / total time. Activate to view practice summary." title="Time remaining / total time • Click to view practice summary">
              <div id="timeProgressFill"></div> 
              <div class="time-content">
                 <span id="timeRemainingDisplay">--:--</span>

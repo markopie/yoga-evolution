@@ -904,8 +904,8 @@ function builderOpen(mode, seq) {
        if (displayCategory) displayCategory.style.display = "none";
     } else {
        if (!seq) return;
-       if (modeLabel) modeLabel.textContent = cloningSharedSequence ? "Personal Copy" : "Sequence Review";
-       if (titleEl) titleEl.value = cloningSharedSequence ? `${seq.title || ""} (My Copy)` : (seq.title || "");
+       if (modeLabel) modeLabel.textContent = "Sequence Review";
+       if (titleEl) titleEl.value = seq.title || "";
        if (notesEl) notesEl.value = seq.condition_notes || "";
        if (displayNotes) {
            displayNotes.textContent = seq.condition_notes || "";

@@ -19,6 +19,8 @@ const getActivePlaybackList = () => window.activePlaybackList;
 const getCurrentSequence = () => window.currentSequence;
 const getAsanaIndex = () => Object.values(window.asanaLibrary || {}).filter(Boolean);
 
+window.openCurriculumSequenceReview = openEditCourse;
+
 function setManualLibraryPanelOpen(open) {
     const panel = $("manualLibraryPanel");
     if (panel) panel.open = !!open;

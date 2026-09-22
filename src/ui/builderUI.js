@@ -689,6 +689,7 @@ export function updateBuilderModeUI() {
     const inputTitle = document.getElementById('builderTitle');
     const inputNotes = document.getElementById('builderNotes');
     const restoreBtn = document.getElementById('warningRestoreBtn');
+    const curriculumReadOnly = Boolean(window.currentCurriculumPractice?.curriculum_node_id);
 
     if (!backdrop) return;
 
@@ -776,8 +777,9 @@ export function updateBuilderModeUI() {
         if (viewHeader) viewHeader.style.display = 'flex';
 
         if (toggleBtn) {
-            toggleBtn.innerHTML = '✏️ Edit';
+            toggleBtn.innerHTML = curriculumReadOnly ? 'View only' : '✏️ Edit';
             toggleBtn.className = 'btn-builder-mode-edit';
+            toggleBtn.style.display = curriculumReadOnly ? 'none' : '';
         }
 
         // Prevent recursive button generation by checking for the container first
@@ -816,6 +818,7 @@ export function updateBuilderModeUI() {
         if (toggleBtn) {
             toggleBtn.innerHTML = '👁️ View';
             toggleBtn.className = 'btn-builder-mode-view';
+            toggleBtn.style.display = curriculumReadOnly ? 'none' : '';
         }
 
         // Hide export cluster in Edit mode

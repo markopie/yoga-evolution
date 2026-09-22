@@ -195,6 +195,7 @@ function updateCurriculumLibraryLock() {
     const panel = $('manualLibraryPanel');
     const startBtn = $('startTodayPracticeBtn');
     const exitBtn = $('exitCurriculumPracticeBtn');
+    const reviewBtn = $('curriculumReviewBtn');
     const controls = [
         $('categoryFilter'),
         $('sequenceSelect'),
@@ -224,6 +225,10 @@ function updateCurriculumLibraryLock() {
 
     if (exitBtn) {
         exitBtn.style.display = locked ? '' : 'none';
+    }
+
+    if (reviewBtn) {
+        reviewBtn.style.display = locked && isSequenceReady(window.currentCurriculumPractice) ? '' : 'none';
     }
 }
 
@@ -809,6 +814,15 @@ function setupCurriculumUI() {
     if (exitBtn) {
         exitBtn.style.display = 'none';
         exitBtn.addEventListener('click', () => exitCurriculumPractice());
+    }
+
+    const reviewBtn = $('curriculumReviewBtn');
+    if (reviewBtn) {
+        reviewBtn.addEventListener('click', () => {
+            if (typeof window.openCurriculumSequenceReview === 'function') {
+                window.openCurriculumSequenceReview();
+            }
+        });
     }
 
     const detailsToggle = $('curriculumDetailsToggleBtn');
