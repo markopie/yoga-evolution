@@ -180,6 +180,81 @@ button.tiny {
     transform: none;
 }
 
+.history-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 8px;
+    background: var(--color-bg-muted, #eee);
+}
+
+.history-tab {
+    flex: 1;
+    min-height: 36px;
+    padding: 7px 10px;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: var(--color-text-secondary, #666);
+    background: transparent;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.history-tab:hover {
+    color: var(--color-text-primary, #222);
+    background: color-mix(in srgb, var(--color-bg-surface, #fff) 70%, transparent);
+}
+
+.history-tab.active {
+    border-color: var(--color-border, #ddd);
+    color: var(--color-text-primary, #222);
+    background: var(--color-bg-surface, #fff);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+}
+
+.history-tab:focus-visible {
+    outline: 2px solid var(--color-primary, #0f6b66);
+    outline-offset: 1px;
+}
+
+.history-view-label {
+    color: var(--color-text-secondary, #666);
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+/* Progress is a full-screen workspace. Keep practice history and the
+   curriculum browser in one stable surface so navigation does not jump
+   between unrelated dialogs. */
+#historyBackdrop .progress-modal {
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+}
+
+#historyBackdrop .progress-modal .modal-body {
+    display: block;
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+}
+
+#historyBackdrop .progress-modal #histViewCurrent,
+#historyBackdrop .progress-modal #histViewManual {
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    box-sizing: border-box;
+}
+
+#historyBackdrop .progress-modal #histViewCurriculum {
+    width: 100%;
+    min-height: 100%;
+}
+
 .history-entry {
     display: flex;
     align-items: flex-start;
@@ -597,7 +672,7 @@ button.tiny {
    ========================================================================== */
 
 /* Status colour tokens (scoped to roadmap modal so they don't collide) */
-#curriculumMapBackdrop {
+#curriculumMapBody {
   --cr-done-bg:     #e6f4ea;
   --cr-done-fg:     #1a6430;
   --cr-current-bg:  #d6f0ed;
@@ -637,7 +712,7 @@ button.tiny {
 }
 
 @media (prefers-color-scheme: dark) {
-  #curriculumMapBackdrop {
+  #curriculumMapBody {
     --cr-n0:   #1c1a16;
     --cr-n50:  #232018;
     --cr-n100: #2b2820;
@@ -667,12 +742,12 @@ button.tiny {
 }
 
 /* Modal sizing override for roadmap */
-#curriculumMapBackdrop {
+#historyBackdrop {
   align-items: stretch;
   padding: 0;
 }
 
-#curriculumMapBackdrop .modal {
+#historyBackdrop .progress-modal {
   display: flex;
   flex-direction: column;
   width: 100vw;
@@ -681,7 +756,7 @@ button.tiny {
   border-radius: 0;
 }
 
-#curriculumMapBackdrop .modal-body {
+#historyBackdrop .progress-modal .modal-body {
   flex: 1;
   min-height: 0;
   max-height: none !important;
@@ -819,6 +894,32 @@ button.tiny {
   background: repeating-linear-gradient(90deg, var(--cr-n500) 0 5px, transparent 5px 8px);
 }
 .cr-legend-interchange { display: flex; align-items: center; gap: .3rem; }
+.cr-browse-practices {
+  border: 1px solid var(--cr-teal);
+  border-radius: 999px;
+  background: var(--cr-n0);
+  color: var(--cr-teal);
+  padding: .35rem .7rem;
+  font: inherit;
+  font-size: .7rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cr-completion-notice {
+  display: flex;
+  align-items: baseline;
+  gap: .65rem;
+  margin-bottom: .8rem;
+  padding: .75rem .95rem;
+  border: 1px solid #b8dfc0;
+  border-radius: var(--cr-radius-lg);
+  background: #edf8ef;
+  color: #216b2c;
+}
+.cr-completion-notice strong { font-size: .9rem; }
+.cr-completion-notice span { font-size: .78rem; }
+.cr-browse-practices:hover { background: var(--cr-teal-light); }
 
 .cr-map-content {
   display: block;
@@ -1095,6 +1196,21 @@ details[open] > summary .cr-chevron { transform: rotate(90deg); }
 .cr-node-source:last-child::after, .cr-node-dur:last-child::after,
 .cr-node-theme:last-child::after { content: ''; }
 .cr-node-rating { flex-shrink: 0; padding-top: .08rem; }
+.cr-node-practise {
+  flex-shrink: 0;
+  align-self: center;
+  border: 1px solid var(--cr-teal);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cr-teal);
+  padding: .3rem .6rem;
+  font: inherit;
+  font-size: .68rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.cr-node-practise:hover { background: var(--cr-teal-light); }
+.cr-node-practise:disabled { opacity: .6; cursor: wait; }
 .cr-node-parts {
   border-top: 1px solid var(--cr-n100);
   background: var(--cr-n50);
@@ -1110,12 +1226,12 @@ details[open] > summary .cr-chevron { transform: rotate(90deg); }
 
 /* Responsive */
 @media (max-width: 720px) {
-  #curriculumMapBackdrop {
+  #historyBackdrop {
     align-items: stretch;
     padding: 0;
   }
 
-  #curriculumMapBackdrop .modal {
+  #historyBackdrop .progress-modal {
     width: 100vw;
     height: 100dvh;
     max-width: none;
@@ -1124,11 +1240,11 @@ details[open] > summary .cr-chevron { transform: rotate(90deg); }
     flex-direction: column;
   }
 
-  #curriculumMapBackdrop .modal-header {
+  #historyBackdrop .progress-modal .modal-header {
     flex-shrink: 0;
   }
 
-  #curriculumMapBackdrop .modal-body {
+  #historyBackdrop .progress-modal .modal-body {
     flex: 1;
     max-height: none !important;
   }

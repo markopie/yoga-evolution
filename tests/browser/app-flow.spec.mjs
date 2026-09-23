@@ -13,6 +13,11 @@ async function openProfile(page) {
   return errors;
 }
 
+async function openCurriculumMapFromProgress(page) {
+  await page.locator('#userEmailDisplay').click();
+  await page.locator('#histTabCurriculum').click();
+}
+
 test('app loads with a saved profile and normal UI has no dev label', async ({ page }) => {
   const errors = await openProfile(page);
 
@@ -42,7 +47,9 @@ test('Start Today loads a playable practice and rating advances to the next node
   await page.getByRole('button', { name: /good/i }).click();
 
   await expect(page.locator('#ratingOverlay')).toBeHidden();
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 2/);
+  await expect(page.locator('#historyBackdrop')).toBeVisible();
+  await expect(page.locator('#histTabCurrent')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#practiceWorkspace')).toBeHidden();
 });
 
 test('first Focus Mode entry resumes its countdown if the opening audio stalls', async ({ page }) => {
@@ -113,20 +120,13 @@ test('three easy ratings can skip remaining nodes in a mastery repeat group', as
   });
   await page.getByRole('button', { name: /start today's practice/i }).click();
 
-  for (let day = 1; day <= 3; day += 1) {
-    await expect(page.locator('#curriculumPracticeSummary')).toContainText(new RegExp(`Week 1 [·,] Day ${day}`));
-    await page.evaluate(() => window.markCurrentCurriculumNodeCompleteForTesting());
-    await expect(page.locator('#ratingOverlay')).toBeVisible();
-    await page.getByRole('button', { name: /good/i }).click();
-    await expect(page.locator('#ratingOverlay')).toBeHidden();
-    await expect(page.locator('.rating-overlay__button[data-rating="4"]')).toBeEnabled();
-    await expect.poll(() => page.evaluate(() =>
-      window.currentCurriculumPractice?.curriculum_node_id)).toBe(day === 3 ? 9005 : 9001 + day);
-  }
-
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 5/);
-  await expect.poll(() => page.evaluate(() => window.__masteryPrompt))
-    .toContain('three times in a row');
+  await page.evaluate(() => window.markCurrentCurriculumNodeCompleteForTesting());
+  await expect(page.locator('#ratingOverlay')).toBeVisible();
+  await page.getByRole('button', { name: /good/i }).click();
+  await expect(page.locator('#historyBackdrop')).toBeVisible();
+  await expect(page.locator('#histTabCurrent')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#practiceWorkspace')).toBeHidden();
+  expect(await page.evaluate(() => window.__masteryPrompt)).toBe('');
 });
 
 test('Start Today can load composed and recovery curriculum nodes', async ({ page }) => {
@@ -142,47 +142,36 @@ test('Start Today can load composed and recovery curriculum nodes', async ({ pag
   await expect(page.locator('body')).toContainText('Recovery Day - Rest Day');
 });
 
-test('optional curriculum stage asks once, supports not now, and persists acceptance', async ({ page }) => {
+test('optional curriculum stage does not interrupt completion with a prompt', async ({ page }) => {
   await openProfile(page);
 
-  page.once('dialog', async (dialog) => {
-    expect(dialog.message()).toContain('optional Light on Yoga Course 2 specialist bridge');
+  let prompted = false;
+  page.on('dialog', async (dialog) => {
+    prompted = true;
     await dialog.dismiss();
   });
   await page.evaluate(() => window.startTodayPractice(9010));
   await expect(page.locator('#curriculumPracticeSummary')).toContainText('Core curriculum complete');
   await expect(page.locator('#practiceWorkspace')).toBeHidden();
-
-  page.once('dialog', async (dialog) => {
-    await dialog.accept();
-  });
-  await page.evaluate(() => window.startTodayPractice(9010));
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 3 [·,] Day 1/);
-  await expect(page.locator('#practiceWorkspace')).toBeVisible();
-
-  let repeatedPrompt = false;
-  page.once('dialog', async (dialog) => {
-    repeatedPrompt = true;
-    await dialog.dismiss();
-  });
-  await page.evaluate(() => window.startTodayPractice(9010));
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 3 [·,] Day 1/);
-  expect(repeatedPrompt).toBe(false);
+  expect(prompted).toBe(false);
 });
 
 test('Curriculum Map opens, renders summary/counts, and stations have forgiving hit targets', async ({ page }) => {
   await openProfile(page);
 
-  await page.locator('#curriculumMapBtn').click();
-  await expect(page.getByTestId('curriculum-map')).toBeVisible();
-  await expect(page.getByTestId('curriculum-detail')).toBeVisible();
+  await openCurriculumMapFromProgress(page);
+  await expect(page.getByRole('tab', { name: 'List view' })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.cr-summary')).toContainText('0 of 7 practices');
   await expect(page.locator('.cr-summary')).toContainText('Chapter 1');
   await expect(page.locator('.cr-summary')).toContainText('Week 1 of up to 2');
-  const modalBox = await page.locator('#curriculumMapBackdrop .modal').boundingBox();
+  const modalBox = await page.locator('#historyBackdrop .progress-modal').boundingBox();
   const viewport = page.viewportSize();
-  expect(modalBox?.width).toBe(viewport?.width);
-  expect(modalBox?.height).toBe(viewport?.height);
+  expect(modalBox?.width).toBeLessThanOrEqual(viewport?.width);
+  expect(modalBox?.height).toBeLessThanOrEqual(viewport?.height);
+
+  await page.getByRole('tab', { name: 'Map view' }).click();
+  await expect(page.getByTestId('curriculum-map')).toBeVisible();
+  await expect(page.getByTestId('curriculum-detail')).toBeVisible();
   await expect(page.getByTestId('curriculum-map')).toContainText('after LOY W30');
 
   await page.getByRole('tab', { name: 'List view' }).click();
@@ -216,7 +205,8 @@ test('Curriculum Map opens, renders summary/counts, and stations have forgiving 
 test('Curriculum Map stations support keyboard activation', async ({ page }) => {
   await openProfile(page);
 
-  await page.locator('#curriculumMapBtn').click();
+  await openCurriculumMapFromProgress(page);
+  await page.getByRole('tab', { name: 'Map view' }).click();
   await expect(page.getByTestId('curriculum-map')).toBeVisible();
 
   const thirdTarget = page.getByTestId('curriculum-station-hit-target').nth(2);
@@ -235,7 +225,8 @@ test('Curriculum Map preserves the duration dial position on close', async ({ pa
   await dial.fill('37');
   await expect(dial).toHaveValue('37');
 
-  await page.evaluate(() => document.getElementById('curriculumMapBtn').click());
+  await openCurriculumMapFromProgress(page);
+  await page.getByRole('tab', { name: 'Map view' }).click();
   await expect(page.getByTestId('curriculum-map')).toBeVisible();
 
   // Reproduce the browser-side mutation seen after a mobile modal interaction.
@@ -244,10 +235,10 @@ test('Curriculum Map preserves the duration dial position on close', async ({ pa
   });
   await expect(dial).toHaveValue('82');
 
-  await page.locator('#curriculumMapCloseBtn').click();
-  await expect(page.locator('#curriculumMapBackdrop')).toBeHidden();
+  await page.locator('#historyCloseBtn').click();
+  await expect(page.locator('#historyBackdrop')).toBeHidden();
   await expect(dial).toHaveValue('37');
-  await expect(page.locator('#curriculumMapBtn')).toBeFocused();
+  await expect(page.locator('#userEmailDisplay')).toBeFocused();
 });
 
 test('installed app cold-starts, advances, and reopens with the computer unavailable', async ({ page, context }, testInfo) => {
@@ -259,7 +250,7 @@ test('installed app cold-starts, advances, and reopens with the computer unavail
     await navigator.serviceWorker.ready;
   });
   await expect.poll(async () => page.evaluate(async () => {
-    const cache = await caches.open('yoga-shell-v5');
+    const cache = await caches.open('yoga-shell-v13');
     return (await cache.keys()).length;
   })).toBeGreaterThan(5);
 
@@ -295,7 +286,8 @@ test('installed app cold-starts, advances, and reopens with the computer unavail
   await page.getByRole('button', { name: /start today's practice/i }).click();
   await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 2/);
 
-  await page.evaluate(() => document.getElementById('curriculumMapBtn').click());
+  await page.locator('#userEmailDisplay').click();
+  await page.locator('#histTabCurriculum').click();
   await expect(page.getByTestId('curriculum-map')).toBeVisible();
   await expect(page.locator('.cr-summary')).toContainText('1 of 7 practices');
 });

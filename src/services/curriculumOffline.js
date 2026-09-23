@@ -76,7 +76,15 @@ async function fetchCurriculumNodes(curriculumSlug) {
             .order('order_index')
             .range(from, from + PAGE_SIZE - 1);
         if (error) throw error;
-        nodes.push(...(data || []));
+        nodes.push(...(data || []).filter((node) => {
+            // Optional extension stages remain gated, but ordinary core nodes
+            // should be browseable even when authored as not-yet-visible.
+            const payload = node.curriculum_payload || {};
+            const optional = node.is_optional
+                || node.requires_user_selection
+                || Boolean(payload.optional_stage || payload.optional_extension);
+            return node.is_visible !== false || !optional;
+        }));
         if (!data || data.length < PAGE_SIZE) break;
     }
     return nodes;
@@ -328,6 +336,29 @@ export async function loadTodayPractice({
     curriculumSlug = ACTIVE_CURRICULUM_SLUG,
     timeoutMs = NETWORK_TIMEOUT_MS,
 } = {}) {
+    // Explicit roadmap selections should work independently of the
+    // recommended-path RPC. This also lets a user browse a core node that is
+    // present in the curriculum but not yet marked visible by the server.
+    if (repeatNodeId != null) {
+        try {
+            const snapshot = await loadCurriculumReadModel({
+                userId,
+                curriculumSlug,
+            });
+            const selected = snapshot.nodes.find((node) =>
+                String(node.id) === String(repeatNodeId));
+            if (selected && (selected.sequence_id != null
+                || selected.node_type === 'rest'
+                || selected.node_type === 'recovery')) {
+                const practice = practiceFromNode(selected, false);
+                await saveResolvedPractice(practice, { userId, curriculumSlug });
+                return { practice, offline: snapshot.offline };
+            }
+        } catch (error) {
+            console.warn('[Curriculum] Direct selected-node lookup failed; using the curriculum RPC:', error);
+        }
+    }
+
     if (!isOffline() && supabase) {
         const rpcParams = {
             p_curriculum_slug: curriculumSlug,

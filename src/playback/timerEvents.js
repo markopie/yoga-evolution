@@ -395,7 +395,26 @@ async function triggerSequenceEnd() {
         }
     } else {
         const displayPercent = Math.round(completionRatio * 100);
-        alert(`You've completed ${displayPercent}% of the sequence. Hold poses longer to log this session!`);
+        const message = `The timer recorded ${displayPercent}% of this sequence. If you completed the practice away from the app — for example from a paper printout — you can still record it here.`;
+        if (typeof window.requestManualCompletionConfirmation === 'function') {
+            const confirmed = await window.requestManualCompletionConfirmation({
+                practicedSeconds: totalSecsPracticed,
+                allocatedSeconds: totalSecsAllocated,
+            });
+            if (confirmed && typeof window.saveCurrentSequenceCompletion === 'function') {
+                try {
+                    await window.saveCurrentSequenceCompletion({
+                        durationSeconds: totalSecsPracticed,
+                        notes: `Manually confirmed completion outside the app. Timer recorded ${Math.round(totalSecsPracticed)} of ${Math.round(totalSecsAllocated)} seconds (${displayPercent}%).`,
+                    });
+                } catch (error) {
+                    console.error('Manual completion error:', error);
+                    alert(error.message || 'Error saving progress. Check console.');
+                }
+            }
+        } else {
+            alert(message);
+        }
     }
 }
 

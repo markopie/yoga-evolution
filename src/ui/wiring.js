@@ -591,7 +591,7 @@ function setupUIExtras() {
 
     safeListen("userEmailDisplay", "click", (e) => {
         e.preventDefault();
-        openHistoryModal("global");
+        openHistoryModal();
     });
 }
 

@@ -197,7 +197,7 @@ export async function fetchServerHistory() {
 
        let query = supabase
           .from('sequence_completions')
-          .select('id, title, category, completed_at, source_type, curriculum_node_id, status, rating, duration_seconds, sequence_id')
+          .select('id, title, category, completed_at, source_type, curriculum_node_id, status, rating, duration_seconds, sequence_id, notes')
           .eq('user_id', window.currentUserId);
 
        const { data, error } = await query;
@@ -220,6 +220,7 @@ export async function fetchServerHistory() {
           rating: r.rating ?? null,
           duration_seconds: r.duration_seconds ?? null,
           sequence_id: r.sequence_id ?? null,
+          notes: r.notes ?? null,
        }));
 
        _rebuildLegacyHistory(serverHistoryCache);
@@ -318,6 +319,7 @@ async function insertCompletionRows(rows) {
 }
 
 let queueFlushPromise = null;
+let queueFlushAgain = false;
 let retryTimer = null;
 
 function permanentSyncError(error) {
@@ -422,26 +424,48 @@ async function performQueueFlush() {
    }
    const remainingItems = await listQueuedCompletions(userId).catch(() => []);
    const remaining = remainingItems.filter((item) => !item.remoteSaved || !item.ratingPending).length;
+   const awaitingUserRating = remainingItems.length > 0
+      && remainingItems.every((item) => item.remoteSaved && item.ratingPending);
    if (nearestRetry != null) scheduleRetry(Math.max(250, nearestRetry));
    setSyncStatus({
-      state: needsAttention
+      state: queueFlushAgain
+         ? SYNC_STATES.SYNCING
+         : needsAttention
          ? SYNC_STATES.NEEDS_ATTENTION
+         : awaitingUserRating
+            ? SYNC_STATES.HEALTHY
          : remaining
             ? SYNC_STATES.PENDING
             : SYNC_STATES.HEALTHY,
-      pending: remaining,
+      pending: awaitingUserRating ? 0 : remaining,
       lastSyncAt: synced ? new Date().toISOString() : undefined,
    });
-   if (synced) window.dispatchEvent(new CustomEvent('yoga:progress-synced', { detail: { synced } }));
+   if (synced) {
+      // Reconcile the optimistic local history after the server accepts the
+      // queued rows. The history view was already usable before this point.
+      await fetchServerHistory();
+      window.dispatchEvent(new CustomEvent('yoga:progress-synced', { detail: { synced } }));
+   }
    return { synced, remaining };
 }
 
 export async function flushCompletionQueue() {
-   if (!queueFlushPromise) {
-      queueFlushPromise = performQueueFlush().finally(() => {
-         queueFlushPromise = null;
-      });
+   if (queueFlushPromise) {
+      // A rating can be saved while the initial completion insert is still
+      // flushing. Remember the request so the same promise performs a second
+      // pass after the first pass sees the updated queue item.
+      queueFlushAgain = true;
+      return queueFlushPromise;
    }
+   queueFlushPromise = (async () => {
+      do {
+         queueFlushAgain = false;
+         await performQueueFlush();
+      } while (queueFlushAgain);
+   })().finally(() => {
+      queueFlushPromise = null;
+      queueFlushAgain = false;
+   });
    return queueFlushPromise;
 }
 
@@ -460,9 +484,30 @@ export async function appendServerHistory(title, whenDate, category = null, dura
       awaitingRating: isCompleted && options?.rating === undefined,
       rating: options?.rating,
    });
+   const optimisticEntries = rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      category: row.category || '',
+      ts: new Date(row.completed_at).getTime(),
+      local: new Date(row.completed_at).toLocaleString('en-AU', {
+         year: 'numeric', month: '2-digit', day: '2-digit',
+         hour: '2-digit', minute: '2-digit',
+      }),
+      iso: row.completed_at,
+      source_type: row.source_type || (row.curriculum_node_id != null ? 'curriculum' : 'manual'),
+      curriculum_node_id: row.curriculum_node_id ?? null,
+      status: row.status || null,
+      rating: row.rating ?? null,
+      duration_seconds: row.duration_seconds ?? null,
+      sequence_id: row.sequence_id ?? null,
+      notes: row.notes ?? null,
+   }));
+   serverHistoryCache = [...(serverHistoryCache || []), ...optimisticEntries]
+      .sort((left, right) => right.ts - left.ts);
+   _rebuildLegacyHistory(serverHistoryCache);
    window.pendingRatingCompletionIds = rows.map((row) => row.id);
    setSyncStatus({
-      state: navigator.onLine === false ? SYNC_STATES.OFFLINE : SYNC_STATES.PENDING,
+      state: navigator.onLine === false ? SYNC_STATES.OFFLINE : SYNC_STATES.SYNCING,
       pending: 1,
    });
    window.dispatchEvent(new CustomEvent('yoga:progress-saved-locally', {
@@ -482,6 +527,12 @@ export async function updateCompletionRating(id, rating) {
       ratingIds.map((ratingId) => updateQueuedCompletionRating(ratingId, rating)),
    );
    if (!results.some(Boolean)) throw new Error('The saved completion could not be found on this device.');
+   if (Array.isArray(serverHistoryCache)) {
+      const idSet = new Set(ratingIds.map(String));
+      serverHistoryCache = serverHistoryCache.map((entry) =>
+         idSet.has(String(entry.id)) ? { ...entry, rating } : entry);
+      _rebuildLegacyHistory(serverHistoryCache);
+   }
    window.pendingRatingCompletionIds = null;
    void flushCompletionQueue().catch((error) =>
       console.warn('[Offline] Rated completion replay failed:', error));
@@ -515,6 +566,42 @@ export async function deleteCompletionById(id) {
       console.error("Failed to delete completion:", e);
       return false;
    }
+}
+
+export async function cancelCompletion(ids) {
+   const rowIds = [...new Set((Array.isArray(ids) ? ids : [ids]).filter(Boolean).map(String))];
+   if (!rowIds.length || !window.currentUserId) return false;
+
+   const queued = await listQueuedCompletions(window.currentUserId).catch(() => []);
+   const queuedOperation = queued.find((item) =>
+      item.rowIds.some((rowId) => rowIds.includes(String(rowId))));
+
+   if (navigator.onLine && supabase) {
+      const { error } = await supabase
+         .from('sequence_completions')
+         .delete()
+         .in('id', rowIds)
+         .eq('user_id', window.currentUserId);
+      if (error) throw error;
+      if (queuedOperation) await removeQueuedCompletion(queuedOperation.id);
+      await fetchServerHistory();
+   } else if (queuedOperation) {
+      await removeQueuedCompletion(queuedOperation.id);
+   } else {
+      throw new Error('Reconnect before undoing this completion.');
+   }
+
+   if (Array.isArray(window.pendingRatingCompletionIds)) {
+      window.pendingRatingCompletionIds = window.pendingRatingCompletionIds
+         .filter((id) => !rowIds.includes(String(id)));
+      if (!window.pendingRatingCompletionIds.length) window.pendingRatingCompletionIds = null;
+   }
+   if (Array.isArray(serverHistoryCache)) {
+      const idSet = new Set(rowIds);
+      serverHistoryCache = serverHistoryCache.filter((entry) => !idSet.has(String(entry.id)));
+      _rebuildLegacyHistory(serverHistoryCache);
+   }
+   return true;
 }
 
 export async function deleteAllCompletionsForTitle(title) {
@@ -567,6 +654,7 @@ export function calculateStreak(isoStrings) {
 // or by legacy wiring that expects them on window
 window.deleteCompletionById = deleteCompletionById;
 window.deleteAllCompletionsForTitle = deleteAllCompletionsForTitle;
+window.cancelCompletion = cancelCompletion;
 window.calculateStreak = calculateStreak;
 window.appendServerHistory = appendServerHistory;
 window.seedManualCompletionsOnce = seedManualCompletionsOnce;

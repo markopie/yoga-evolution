@@ -23,6 +23,7 @@ export function setupSyncStatusUI() {
     const retry = document.getElementById('retryProgressSyncBtn');
     const settingsClose = document.getElementById('settingsCloseButton');
     if (!button) return;
+    let pendingRenderTimer = null;
     const render = (status = getSyncStatus()) => {
         const label = syncStatusLabel(status);
         button.hidden = status.state === SYNC_STATES.HEALTHY || !label;
@@ -47,6 +48,16 @@ export function setupSyncStatusUI() {
         if (!settings) return;
         settings.open = true;
         settingsToggle?.setAttribute('aria-expanded', 'true');
+    };
+    const renderStatus = (status = getSyncStatus()) => {
+        clearTimeout(pendingRenderTimer);
+        if (status.state === SYNC_STATES.PENDING) {
+            // A completion is written in two quick stages (completion, then
+            // rating). Do not expose a transient pending state between them.
+            pendingRenderTimer = setTimeout(() => render(status), 300);
+            return;
+        }
+        render(status);
     };
     button.addEventListener('click', openSettings);
     settingsToggle?.addEventListener('click', () => {
@@ -83,8 +94,8 @@ export function setupSyncStatusUI() {
             retry.disabled = false;
         }
     });
-    window.addEventListener('yoga:sync-status', (event) => render(event.detail));
+    window.addEventListener('yoga:sync-status', (event) => renderStatus(event.detail));
     window.addEventListener('yoga:progress-saved-locally', () => showToast('Saved on this device'));
     window.addEventListener('yoga:progress-synced', () => showToast('Progress synced'));
-    render();
+    renderStatus();
 }

@@ -175,7 +175,7 @@ function showResumePrompt(state) {
     const seq = resolved.course;
     const isCurriculumResume = state?.mode === 'curriculum' && state?.curriculumNodeId != null;
     const seqName = isCurriculumResume
-        ? `curriculum practice${state.curriculumWeek && state.curriculumDay ? ` — Week ${state.curriculumWeek}, Day ${state.curriculumDay}` : ''}`
+        ? `Curriculum Practice${state.curriculumWeek && state.curriculumDay ? ` — Week ${state.curriculumWeek}, Day ${state.curriculumDay}` : ''}`
         : (seq ? seq.title : "your previous session");
 
     let poseName = `pose ${state.poseIdx + 1}`;
@@ -189,7 +189,7 @@ function showResumePrompt(state) {
         }
     }
 
-    const resumeLabel = isCurriculumResume ? 'Resume curriculum practice' : 'Resume manual practice';
+    const resumeLabel = isCurriculumResume ? 'Resume' : 'Resume manual practice';
     banner.innerHTML = `<span>${resumeLabel}: <b>${seqName}</b> at <b>${poseName}</b>?</span><button id="resumeYes" style="background:#4CAF50; color:white; border:none; padding:5px 12px; border-radius:15px; cursor:pointer;">Yes</button><button id="resumeNo" style="background:transparent; color:#ccc; border:none; cursor:pointer;">✕</button>`;
     document.body.appendChild(banner);
 
@@ -309,6 +309,94 @@ Object.assign(window, {
 });
 // #endregion
 
+async function saveCurrentSequenceCompletion({ durationSeconds = 0, notes = null } = {}) {
+    if (!window.currentSequence || typeof window.appendServerHistory !== 'function') {
+        throw new Error('There is no active practice to complete.');
+    }
+
+    const title = window.currentSequence.title || "Unknown Sequence";
+    const category = window.currentSequence.category || null;
+    const curriculumPractice = window.currentCurriculumPractice || null;
+    const sessionId = await window.appendServerHistory(title, new Date(), category, Math.round(durationSeconds), {
+        status: 'Completed',
+        sequence_id: curriculumPractice?.resolved_sequence_id || window.currentSequence?.supabaseId || window.currentSequence?.id || null,
+        curriculum_node_id: curriculumPractice?.curriculum_node_id || null,
+        source_type: curriculumPractice?.curriculum_node_id != null ? 'curriculum' : 'manual',
+        notes,
+        completion_items: typeof window.getCurriculumCompletionItems === 'function'
+            ? window.getCurriculumCompletionItems(curriculumPractice)
+            : null,
+    });
+
+    showCompletionRatingOverlay(sessionId, ratingOverlayOptionsForCompletion(curriculumPractice));
+    return sessionId;
+}
+
+let manualCompletionResolver = null;
+
+function requestManualCompletionConfirmation({ practicedSeconds = 0, allocatedSeconds = 0 } = {}) {
+    const overlay = document.getElementById('manualCompletionOverlay');
+    if (!overlay) return Promise.resolve(false);
+
+    const message = document.getElementById('manualCompletionMessage');
+    if (message) {
+        const recorded = Math.round(Number(practicedSeconds) || 0);
+        const planned = Math.round(Number(allocatedSeconds) || 0);
+        message.textContent = planned > 0
+            ? `The timer recorded ${recorded} seconds of this ${Math.round(planned / 60)} minute practice. If you completed it away from the app — for example from a paper printout — you can still record it here.`
+            : 'The timer only records practice done inside the app. If you completed this practice away from the app — for example from a paper printout — you can still record it here.';
+    }
+
+    overlay.hidden = false;
+    return new Promise((resolve) => {
+        manualCompletionResolver = resolve;
+    });
+}
+
+function finishManualCompletionConfirmation(confirmed) {
+    const overlay = document.getElementById('manualCompletionOverlay');
+    if (overlay) overlay.hidden = true;
+    const resolve = manualCompletionResolver;
+    manualCompletionResolver = null;
+    resolve?.(confirmed);
+}
+
+async function undoVisibleCompletion() {
+    const ids = Array.isArray(window.pendingRatingCompletionIds)
+        ? [...window.pendingRatingCompletionIds]
+        : [];
+    if (!ids.length || typeof window.cancelCompletion !== 'function') return;
+    if (!window.confirm('Remove this completion from your progress?')) return;
+
+    const button = document.getElementById('undoCompletionBtn');
+    const error = document.getElementById('ratingSaveError');
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Undoing…';
+    }
+    if (error) error.hidden = true;
+
+    try {
+        await window.cancelCompletion(ids);
+        document.getElementById('ratingOverlay')?.style.setProperty('display', 'none');
+        window.resetCompletionTracker?.();
+        window.dispatchEvent(new CustomEvent('yoga:completion-undone', {
+            detail: { completionIds: ids },
+        }));
+    } catch (err) {
+        console.error('Undo completion failed:', err);
+        if (error) {
+            error.textContent = err.message || 'The completion could not be undone.';
+            error.hidden = false;
+        }
+    } finally {
+        if (button) {
+            button.disabled = false;
+            button.textContent = 'Undo completion';
+        }
+    }
+}
+
 // #region 9. WIRING UP UI ELEMENTS
 safeListen("completeBtn", "click", async () => {
     if (!window.currentSequence) return;
@@ -317,7 +405,17 @@ safeListen("completeBtn", "click", async () => {
     const practiced = Object.values(tracker).reduce((acc, val) => acc + Number(val), 0);
 
     if (practiced < 30) {
-        alert(`Practice for at least 30 seconds before marking complete. (Current: ${Math.round(practiced)}s)`);
+        const confirmed = await requestManualCompletionConfirmation({ practicedSeconds: practiced });
+        if (!confirmed) return;
+        try {
+            await saveCurrentSequenceCompletion({
+                durationSeconds: practiced,
+                notes: `Manually confirmed completion outside the app. Timer recorded ${Math.round(practiced)} seconds.`,
+            });
+        } catch (error) {
+            console.error('Manual completion error:', error);
+            alert(error.message || 'Error saving progress. Check console.');
+        }
         return;
     }
 
@@ -327,20 +425,7 @@ safeListen("completeBtn", "click", async () => {
     btn.textContent = "Saving...";
 
     try {
-        const title = window.currentSequence.title || "Unknown Sequence";
-        const category = window.currentSequence.category || null;
-        const curriculumPractice = window.currentCurriculumPractice || null;
-        const sessionId = await appendServerHistory(title, new Date(), category, Math.round(practiced), {
-            status: 'Completed',
-            sequence_id: curriculumPractice?.resolved_sequence_id || window.currentSequence?.supabaseId || window.currentSequence?.id || null,
-            curriculum_node_id: curriculumPractice?.curriculum_node_id || null,
-            completion_items: typeof window.getCurriculumCompletionItems === 'function'
-                ? window.getCurriculumCompletionItems(curriculumPractice)
-                : null,
-        });
-
-        alert("Sequence Completed and Logged!");
-        showCompletionRatingOverlay(sessionId, ratingOverlayOptionsForCompletion(curriculumPractice));
+        await saveCurrentSequenceCompletion({ durationSeconds: practiced });
     } catch (e) {
         console.error("Completion error:", e);
         alert("Error saving progress. Check console.");
@@ -428,13 +513,6 @@ const setupRatingButtons = async () => {
 
                     if (afterRatingAction === "startTodayPractice" && typeof window.startTodayPractice === "function") {
                         const practice = practiceBeforeAdvance;
-                        if (rating >= 4 && typeof window.maybeOfferCurriculumAdvance === "function") {
-                            try {
-                                await window.maybeOfferCurriculumAdvance(practice, rating);
-                            } catch (masteryError) {
-                                console.error("Curriculum mastery prompt failed:", masteryError);
-                            }
-                        }
                         if (rating <= 2) {
                             // Pass 1: repeat same node
                             const repeatNodeId = practice?.curriculum_node_id ?? null;
@@ -456,11 +534,26 @@ const setupRatingButtons = async () => {
                         } else {
                             // Advance normally
                             window.currentCurriculumPractice = null;
-                            await window.startTodayPractice();
+                            window.exitCurriculumPractice?.();
+                            if (typeof window.openCurriculumRoadmap === "function") {
+                                await window.openCurriculumRoadmap({
+                                    completionNotice: {
+                                        title: practice?.resolved_course_title || practice?.source_reference || 'Curriculum practice',
+                                        rating,
+                                    },
+                                });
+                            }
                         }
                     } else if (shouldResetAfterRating) {
                         const resetBtn = document.getElementById("resetBtn");
                         if (resetBtn) resetBtn.click();
+                    } else if (afterRatingAction === "openHistory" && typeof window.openHistoryModal === "function") {
+                        const isCurriculumCompletion = practiceBeforeAdvance?.curriculum_node_id != null;
+                        await window.openHistoryModal(
+                            isCurriculumCompletion ? 'current' : 'manual',
+                            { clearPracticeOnClose: isCurriculumCompletion },
+                        );
+                        if (isCurriculumCompletion) window.exitCurriculumPractice?.();
                     }
 
                     // Reset visual state for next time
@@ -506,18 +599,45 @@ function showCompletionRatingOverlay(sessionId, options = {}) {
     }
 
     overlay.dataset.sessionId = sessionId || "fallback-id";
-    if (options.afterRatingAction) overlay.dataset.afterRatingAction = options.afterRatingAction;
+    // Curriculum completion is intentionally a stopping point. Do not let a
+    // legacy caller advance straight into the next practice after rating;
+    // send the practitioner to Progress so the completion and next options are
+    // visible together.
+    const isCurriculumCompletion = window.currentCurriculumPractice?.curriculum_node_id != null;
+    const afterRatingAction = isCurriculumCompletion
+        ? 'openHistory'
+        : options.afterRatingAction;
+    if (afterRatingAction) overlay.dataset.afterRatingAction = afterRatingAction;
     overlay.dataset.resetAfterRating = options.resetAfterRating === false ? "false" : "true";
+    const undoButton = document.getElementById('undoCompletionBtn');
+    if (undoButton) undoButton.hidden = !sessionId || sessionId === 'fallback-id';
     overlay.style.setProperty('display', 'flex', 'important');
     return true;
 }
 
 window.showCompletionRatingOverlay = showCompletionRatingOverlay;
+window.saveCurrentSequenceCompletion = saveCurrentSequenceCompletion;
+window.requestManualCompletionConfirmation = requestManualCompletionConfirmation;
+window.openHistoryModal = openHistoryModal;
+
+function setupCompletionRecoveryControls() {
+    document.getElementById('confirmManualCompletionBtn')?.addEventListener('click', () => {
+        finishManualCompletionConfirmation(true);
+    });
+    document.getElementById('cancelManualCompletionBtn')?.addEventListener('click', () => {
+        finishManualCompletionConfirmation(false);
+    });
+    document.getElementById('undoCompletionBtn')?.addEventListener('click', undoVisibleCompletion);
+}
 
 // Run setup after DOM is ready
 if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => setupRatingButtons());
+    document.addEventListener("DOMContentLoaded", () => {
+        setupRatingButtons();
+        setupCompletionRecoveryControls();
+    });
 } else {
     setupRatingButtons();
+    setupCompletionRecoveryControls();
 }
 // #endregion

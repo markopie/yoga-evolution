@@ -26,7 +26,7 @@ test('profile card fits every control without horizontal scrolling', async ({ pa
 
 test('core actions are visible and do not cause horizontal overflow', async ({ page }) => {
   await signIn(page);
-  await expect(page.locator('#curriculumMapBtn')).toBeVisible();
+  await expect(page.locator('#userEmailDisplay')).toBeVisible();
   await expect(page.locator('#startTodayPracticeBtn')).toBeVisible();
   const startButtonFits = await page.locator('#startTodayPracticeBtn').evaluate((element) => ({
     width: element.getBoundingClientRect().width,
@@ -41,10 +41,11 @@ test('core actions are visible and do not cause horizontal overflow', async ({ p
 
 test('curriculum map remains usable at every configured viewport', async ({ page }) => {
   await signIn(page);
-  await page.locator('#curriculumMapBtn').click();
-  await expect(page.locator('#curriculumMapBackdrop')).toBeVisible();
-  await expect(page.locator('#curriculumMapCloseBtn')).toBeVisible();
-  const bounds = await page.locator('#curriculumMapBackdrop .modal').boundingBox();
+  await page.locator('#userEmailDisplay').click();
+  await page.locator('#histTabCurriculum').click();
+  await expect(page.locator('#historyBackdrop')).toBeVisible();
+  await expect(page.locator('#historyCloseBtn')).toBeVisible();
+  const bounds = await page.locator('#historyBackdrop .progress-modal').boundingBox();
   const viewport = page.viewportSize();
   expect(bounds.width).toBeLessThanOrEqual(viewport.width + 1);
   expect(bounds.height).toBeLessThanOrEqual(viewport.height + 1);

@@ -83,16 +83,6 @@ function normalisePracticeResult(data) {
     return data ?? null;
 }
 
-function optionalStagePrompt(stageKey) {
-    if (stageKey === 'course_2_specialist_bridge') {
-        return 'You have completed the core curriculum. The next section is an optional Light on Yoga Course 2 specialist bridge containing material not found in the other source books. Would you like to begin it?';
-    }
-    if (stageKey === 'course_3_advanced_extension') {
-        return 'You have completed the optional Course 2 specialist bridge. Light on Yoga describes Course 3 as mainly for those who wish to persevere further and have sufficient devotion to the Science. Would you like to begin this advanced extension?';
-    }
-    return `Would you like to begin the optional ${optionalStageLabel(stageKey)}?`;
-}
-
 function findCourseById(sequenceId) {
     return (window.courses || []).find((course) =>
         String(course.supabaseId || course.id) === String(sequenceId)
@@ -287,12 +277,8 @@ function renderPracticeDetails(practice) {
         : `Week ${practice.week_number}, Day ${practice.day_number}: ${title}`;
 
     if (overview) {
-        const bookLabels = [...new Set(parts
-            .map(part => part.source_name || String(part.category || '').split('>')[0].trim())
-            .filter(Boolean))];
         const practiceTypes = [...new Set(parts.map(part => roleLabel(part.role)).filter(Boolean))];
         const overviewItems = [
-            ['Source', bookLabels],
             ...(parts.length > 1 ? [['Includes', practiceTypes]] : []),
             ['Recovery', practice.recovery_type && prettifyCurriculumToken(practice.recovery_type)],
         ];
@@ -437,7 +423,10 @@ function loadResolvedSequence(practice) {
     return true;
 }
 
-async function startTodayPractice(repeatNodeId = null) {
+async function startTodayPractice(
+    repeatNodeId = null,
+    { automaticAdvance = false, previousPractice = null } = {},
+) {
     const btn = $('startTodayPracticeBtn');
     const summary = $('curriculumPracticeSummary');
     const originalText = btn?.textContent || 'Start Today\'s Practice';
@@ -456,6 +445,17 @@ async function startTodayPractice(repeatNodeId = null) {
         });
         const practice = normalisePracticeResult(result.practice);
         if (!practice) throw new Error('No curriculum practice returned.');
+
+        const previousCourse = String(previousPractice?.source_course || previousPractice?.source_key || '').trim().toLowerCase();
+        const nextCourse = String(practice.source_course || practice.source_key || '').trim().toLowerCase();
+        if (automaticAdvance && previousCourse && nextCourse && previousCourse !== nextCourse) {
+            exitCurriculumPractice();
+            if (summary) {
+                summary.textContent = 'Course complete. The next course is available whenever you are ready.';
+            }
+            return false;
+        }
+
         const optionalStageEnrollment = await ensureOptionalStageEnrollment({
             practice,
             client: supabase,
@@ -463,10 +463,19 @@ async function startTodayPractice(repeatNodeId = null) {
             curriculumSlug: CURRICULUM_SLUG,
             offline: result.offline
                 || (typeof navigator !== 'undefined' && navigator.onLine === false),
-            confirmChoice: async (stageKey) =>
-                window.confirm(optionalStagePrompt(stageKey)),
+            // Optional courses should never interrupt completion with a
+            // confirmation prompt. They remain available from the curriculum
+            // map when the practitioner is ready to continue.
+            confirmChoice: async () => false,
         });
         if (!optionalStageEnrollment.accepted) {
+            if (automaticAdvance) {
+                exitCurriculumPractice();
+                if (summary) {
+                    summary.textContent = 'Course complete. The next course is available whenever you are ready.';
+                }
+                return false;
+            }
             window.currentCurriculumPractice = null;
             setPracticeWorkspaceVisible(false);
             updateCurriculumLibraryLock();
@@ -482,7 +491,14 @@ async function startTodayPractice(repeatNodeId = null) {
 
         renderPracticeDetails(practice);
 
-        if (isRestOrRecoveryNode(practice)) {
+        const practiceComposition = practice.curriculum_payload?.practice_composition;
+        const hasPlayableComposition = Array.isArray(practiceComposition)
+            && practiceComposition.some((part) => part?.sequence_id != null);
+
+        // Recovery is normally acknowledgement-only, but some recovery days
+        // deliberately combine real sequences (for example Quiet Asana plus
+        // Short Pranayama). Those must enter the normal composed player.
+        if (isRestOrRecoveryNode(practice) && !hasPlayableComposition) {
             window.currentCurriculumPractice = practice;
             setPracticeWorkspaceVisible(true);
             if (summary) summary.textContent = practice.special_instructions || `${nonSequenceNodeTitle(practice)}.`;
@@ -493,7 +509,7 @@ async function startTodayPractice(repeatNodeId = null) {
             return;
         }
 
-        if (isSequenceReady(practice)) {
+        if (isSequenceReady(practice) || hasPlayableComposition) {
             loadResolvedSequence(practice);
             return;
         }
@@ -518,63 +534,6 @@ async function startTodayPractice(repeatNodeId = null) {
             btn.textContent = originalText;
         }
     }
-}
-
-async function maybeOfferCurriculumAdvance(practice, rating) {
-    const payload = practice?.curriculum_payload || {};
-    const repeatGroup = payload.repeat_group;
-    if (!supabase || !window.currentUserId || Number(rating) < 4
-        || !payload.mastery_skippable || !repeatGroup) {
-        return false;
-    }
-
-    const readModel = await loadCurriculumReadModel({
-        userId: window.currentUserId,
-        curriculumSlug: CURRICULUM_SLUG,
-    });
-    const nodeIds = readModel.nodes
-        .filter((node) =>
-            node.curriculum_payload?.repeat_group === repeatGroup)
-        .map((node) => String(node.id));
-    if (!nodeIds.length) return false;
-    const attempts = readModel.completions
-        .filter((attempt) =>
-            nodeIds.includes(String(attempt.curriculum_node_id))
-            && attempt.completed !== false
-            && attempt.rating != null)
-        .sort((left, right) =>
-            new Date(right.completed_at || 0).getTime()
-            - new Date(left.completed_at || 0).getTime())
-        .slice(0, 12);
-
-    const distinctAttempts = [...attempts.reduce((byNode, attempt) => {
-        const nodeId = String(attempt.curriculum_node_id);
-        if (!byNode.has(nodeId)) {
-            byNode.set(nodeId, attempt);
-        }
-        return byNode;
-    }, new Map()).values()].slice(0, 3);
-    const threeEasyRatings = distinctAttempts.length === 3
-        && distinctAttempts.every((attempt) => Number(attempt.rating) >= 4);
-    if (!threeEasyRatings) return false;
-
-    const ready = window.confirm(
-        `You have rated "${practice.source_reference}" comfortable or ready for more three times in a row. `
-        + 'Would you like to skip its remaining planned repetitions?',
-    );
-    if (!ready) return false;
-
-    const { error: masteryError } = await supabase
-        .from('curriculum_mastery_decisions')
-        .upsert({
-            user_id: window.currentUserId,
-            curriculum_slug: CURRICULUM_SLUG,
-            repeat_group: repeatGroup,
-            easy_rating_count: 3,
-            mastered_at: new Date().toISOString(),
-        }, { onConflict: 'user_id,curriculum_slug,repeat_group' });
-    if (masteryError) throw masteryError;
-    return true;
 }
 
 async function markCurrentCurriculumNodeCompleteForTesting() {
@@ -644,7 +603,7 @@ async function markCurrentCurriculumNodeCompleteForTesting() {
         if (typeof window.resetCompletionTracker === 'function') window.resetCompletionTracker();
         const shown = typeof window.showCompletionRatingOverlay === 'function' && window.showCompletionRatingOverlay(sessionId, {
             title: 'Rate this curriculum practice',
-            afterRatingAction: 'startTodayPractice',
+            afterRatingAction: 'openHistory',
             resetAfterRating: false,
         });
         if (!shown) {
@@ -838,7 +797,6 @@ function setupCurriculumUI() {
 
 window.setupCurriculumUI = setupCurriculumUI;
 window.startTodayPractice = startTodayPractice;
-window.maybeOfferCurriculumAdvance = maybeOfferCurriculumAdvance;
 window.markCurrentCurriculumNodeCompleteForTesting = markCurrentCurriculumNodeCompleteForTesting;
 window.undoCurrentCurriculumNodeCompletionForTesting = undoCurrentCurriculumNodeCompletionForTesting;
 window.resetCurriculumTestProgress = resetCurriculumTestProgress;

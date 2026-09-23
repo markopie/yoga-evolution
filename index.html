@@ -78,7 +78,7 @@
           </div>
           <div class="header-account-controls" style="display:flex; align-items:center;">
              <button id="syncStatusButton" class="sync-status-pill" type="button" hidden aria-live="polite" aria-controls="appSettingsPanel"></button>
-             <button id="userEmailDisplay" class="profile-history-trigger" type="button" aria-label="Open practice history" aria-controls="historyBackdrop" title="Open practice history"></button>
+             <button id="userEmailDisplay" class="profile-history-trigger" type="button" aria-label="Open progress" aria-controls="historyBackdrop" title="Open progress"></button>
              <button id="settingsToggleButton" class="tiny settings-toggle" type="button" aria-label="Open Settings" aria-controls="appSettingsPanel" aria-expanded="false" title="Open Settings">
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m19.43 12.98.04-.98-.04-.98 2.11-1.65-2-3.46-2.49 1a7.2 7.2 0 0 0-1.7-.98L15 3h-4l-.35 2.93c-.6.24-1.17.57-1.7.98l-2.49-1-2 3.46 2.11 1.65a7.2 7.2 0 0 0 0 1.96l-2.11 1.65 2 3.46 2.49-1c.53.4 1.1.74 1.7.98L11 21h4l.35-2.93c.6-.24 1.17-.57 1.7-.98l2.49 1 2-3.46-2.11-1.65Z M13 15.5A3.5 3.5 0 1 1 13 8a3.5 3.5 0 0 1 0 7.5Z" fill="currentColor"/></svg>
              </button>
@@ -96,7 +96,6 @@
                <button id="startTodayPracticeBtn" type="button" class="curriculum-practice-panel__button">Start Today's Practice</button>
                <button id="exitCurriculumPracticeBtn" type="button" class="tiny curriculum-practice-panel__exit-button" style="display:none;">Exit Practice</button>
                <button id="curriculumReviewBtn" type="button" class="tiny curriculum-practice-panel__review-button" style="display:none;">Review Practice</button>
-               <button id="curriculumMapBtn" type="button" class="tiny curriculum-practice-panel__map-button" aria-haspopup="dialog">Curriculum Map</button>
                <button id="curriculumDetailsToggleBtn" type="button" class="tiny curriculum-practice-panel__dev-button" style="display:none;" aria-expanded="false" aria-controls="curriculumPracticeDetails">Details</button>
                <button id="markCurriculumCompleteBtn" type="button" class="tiny curriculum-practice-panel__dev-button" style="display:none;">Mark Node Complete</button>
                <button id="undoCurriculumCompletionBtn" type="button" class="tiny curriculum-practice-panel__dev-button curriculum-practice-panel__dev-button--danger" style="display:none;">Undo Curriculum Completion</button>
@@ -507,16 +506,18 @@
   </div>
 
   <div class="modal-backdrop" id="historyBackdrop" style="display:none;">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="historyModalTitle" style="max-width:600px; width:95%;">
+    <div class="modal progress-modal" role="dialog" aria-modal="true" aria-labelledby="historyModalTitle">
       <div class="modal-header" style="flex-direction:column; align-items:stretch; gap:10px;">
          <div style="display:flex; justify-content:space-between; align-items:center;">
-             <strong id="historyModalTitle">✅ Completion History</strong>
-             <button id="historyCloseBtn" type="button" aria-label="Close History">Close</button>
+             <strong id="historyModalTitle">✅ Progress</strong>
+             <button id="historyCloseBtn" type="button" aria-label="Back to Practice">Back to Practice</button>
          </div>
-         <div style="display:flex; background:#eee; padding:4px; border-radius:6px; gap:5px;">
-             <button id="histTabCurrent" class="tiny active" aria-selected="true" style="flex:1; background:#fff; font-weight:bold; border:1px solid #ddd;">Current Sequence</button>
-             <button id="histTabGlobal" class="tiny" aria-selected="false" style="flex:1; border:none; background:transparent;">Global Dashboard</button>
+         <div class="history-tabs" role="tablist" aria-label="Progress view">
+             <button id="histTabCurrent" class="history-tab active" type="button" role="tab" aria-selected="true" aria-controls="histViewCurrent">Current Sequence</button>
+             <button id="histTabManual" class="history-tab" type="button" role="tab" aria-selected="false" aria-controls="histViewManual">Manual Practice</button>
+             <button id="histTabCurriculum" class="history-tab" type="button" role="tab" aria-selected="false">Curriculum</button>
          </div>
+         <div id="historyViewLabel" class="history-view-label" aria-live="polite">Current sequence</div>
       </div>
       
       <div class="modal-body" style="padding:0;">
@@ -528,21 +529,12 @@
             </div>
          </div>
 
-         <div id="histViewGlobal" style="padding:15px; display:none; max-height:60vh; overflow-y:auto; background:#f9f9f9;">
+         <div id="histViewManual" style="padding:15px; display:none; max-height:60vh; overflow-y:auto; background:#f9f9f9;">
             <div id="globalHistoryList"></div>
          </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-backdrop" id="curriculumMapBackdrop" style="display:none;">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="curriculumMapTitle">
-      <div class="modal-header">
-        <strong id="curriculumMapTitle">Curriculum Roadmap</strong>
-        <button id="curriculumMapCloseBtn" type="button" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:#86868b;padding:0 4px;" title="Close">✕</button>
-      </div>
-      <div class="modal-body" style="padding:0; overflow-y:auto; max-height:80vh;">
-        <div id="curriculumMapBody"></div>
+         <div id="histViewCurriculum" style="display:none;">
+            <div id="curriculumMapBody"></div>
+         </div>
       </div>
     </div>
   </div>
@@ -635,6 +627,21 @@
       <div class="rating-overlay__loading">Loading rating options…</div>
     </div>
     <p id="ratingSaveError" class="rating-overlay__error" hidden></p>
+    <div class="rating-overlay__actions">
+      <button type="button" id="undoCompletionBtn" class="rating-overlay__undo">Undo completion</button>
+    </div>
+  </div>
+
+  <div id="manualCompletionOverlay" class="manual-completion-overlay" role="dialog" aria-modal="true" aria-labelledby="manualCompletionTitle" hidden>
+    <div class="manual-completion-card">
+      <div class="manual-completion-eye" aria-hidden="true">👁️</div>
+      <h2 id="manualCompletionTitle">Record this practice?</h2>
+      <p id="manualCompletionMessage">The timer only records practice done inside the app. If you completed this practice away from the app, you can still record it here.</p>
+      <div class="manual-completion-actions">
+        <button type="button" id="confirmManualCompletionBtn" class="primary">Confirm completed</button>
+        <button type="button" id="cancelManualCompletionBtn" class="secondary">Continue practising</button>
+      </div>
+    </div>
   </div>
 
 <script type="module" src="/src/main.js"></script>

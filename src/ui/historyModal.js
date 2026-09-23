@@ -1,4 +1,5 @@
 import { $ } from '../utils/dom.js';
+import { openCurriculumRoadmap, restoreRoadmapState } from './curriculumRoadmapUI.js';
 
 const getCurrentSequence = () => window.currentSequence;
 const getServerHistoryCache = () => window.serverHistoryCache;
@@ -12,27 +13,45 @@ const histBackdrop = $('historyBackdrop');
 const historyDialog = histBackdrop?.querySelector('[role="dialog"]');
 const historyCloseBtn = $('historyCloseBtn');
 const tabCurrent = $('histTabCurrent');
-const tabGlobal = $('histTabGlobal');
+const tabManual = $('histTabManual');
+const tabCurriculum = $('histTabCurriculum');
 const viewCurrent = $('histViewCurrent');
-const viewGlobal = $('histViewGlobal');
+const viewManual = $('histViewManual');
+const viewCurriculum = $('histViewCurriculum');
+const viewLabel = $('historyViewLabel');
 let historyOpener = null;
+
+function getDefaultHistoryTab() {
+    return getCurrentSequence()?.title ? 'current' : 'manual';
+}
 
 function closeHistoryModal() {
     if (!histBackdrop) return;
     histBackdrop.style.display = 'none';
     document.body.classList.remove('modal-open');
+    if (histBackdrop.dataset.clearPracticeOnClose === 'true') {
+        window.exitCurriculumPractice?.();
+        delete histBackdrop.dataset.clearPracticeOnClose;
+    }
+    restoreRoadmapState();
     if (historyOpener instanceof HTMLElement) historyOpener.focus();
 }
 
 function switchHistoryTab(mode) {
+    const isCurriculum = mode === 'curriculum';
     const isCurrent = mode === 'current';
     tabCurrent?.classList.toggle('active', isCurrent);
-    tabGlobal?.classList.toggle('active', !isCurrent);
+    tabManual?.classList.toggle('active', mode === 'manual');
+    tabCurriculum?.classList.toggle('active', isCurriculum);
     tabCurrent?.setAttribute('aria-selected', String(isCurrent));
-    tabGlobal?.setAttribute('aria-selected', String(!isCurrent));
+    tabManual?.setAttribute('aria-selected', String(mode === 'manual'));
+    tabCurriculum?.setAttribute('aria-selected', String(isCurriculum));
+    viewLabel && (viewLabel.textContent = isCurrent ? 'Current sequence' : mode === 'manual' ? 'Manual practice' : 'Curriculum');
     if (viewCurrent) viewCurrent.style.display = isCurrent ? 'block' : 'none';
-    if (viewGlobal) viewGlobal.style.display = isCurrent ? 'none' : 'block';
-    if (!isCurrent) renderGlobalHistory();
+    if (viewManual) viewManual.style.display = mode === 'manual' ? 'block' : 'none';
+    if (viewCurriculum) viewCurriculum.style.display = isCurriculum ? 'block' : 'none';
+    if (mode === 'manual') renderGlobalHistory('manual');
+    if (isCurriculum) void openCurriculumRoadmap({ embedded: true });
 }
 
 historyCloseBtn?.addEventListener('click', closeHistoryModal);
@@ -40,7 +59,8 @@ histBackdrop?.addEventListener('click', (event) => {
     if (event.target === histBackdrop) closeHistoryModal();
 });
 tabCurrent?.addEventListener('click', () => switchHistoryTab('current'));
-tabGlobal?.addEventListener('click', () => switchHistoryTab('global'));
+tabManual?.addEventListener('click', () => switchHistoryTab('manual'));
+tabCurriculum?.addEventListener('click', () => switchHistoryTab('curriculum'));
 
 document.addEventListener('keydown', (event) => {
     if (!histBackdrop || histBackdrop.style.display === 'none') return;
@@ -84,17 +104,27 @@ function formatDate(entry) {
 function formatDetails(entry) {
     const details = [];
     const duration = Number(entry.duration_seconds);
-    if (Number.isFinite(duration) && duration > 0) details.push(`${Math.round(duration / 60)} min`);
+    const manuallyConfirmed = /manually confirmed completion outside the app/i.test(entry.notes || '');
+    if (manuallyConfirmed) {
+        details.push('Completed outside the app');
+    } else if (Number.isFinite(duration) && duration >= 60) {
+        details.push(`${Math.round(duration / 60)} min`);
+    } else if (Number.isFinite(duration) && duration > 0) {
+        details.push('Under 1 min');
+    }
     if (entry.status) details.push(entry.status);
     if (entry.rating !== null && entry.rating !== undefined && entry.rating !== '') details.push(`Rating: ${entry.rating}`);
     return details.join(' · ');
 }
 
-async function openHistoryModal(defaultTab = 'current') {
+async function openHistoryModal(defaultTab = null, { clearPracticeOnClose = false } = {}) {
     if (!histBackdrop) return;
     historyOpener = document.activeElement;
     const sequence = getCurrentSequence();
-    if (defaultTab === 'global' && (getServerHistoryCache() === null || getServerHistoryCache() === undefined)) await fetchServerHistory();
+    const selectedTab = ['current', 'manual', 'curriculum'].includes(defaultTab)
+        ? defaultTab
+        : getDefaultHistoryTab();
+    if (selectedTab === 'manual' && (getServerHistoryCache() === null || getServerHistoryCache() === undefined)) await fetchServerHistory();
     const titleEl = $('historyTitle');
     const listEl = $('historyList');
     if (titleEl) titleEl.textContent = sequence?.title || 'Current Sequence';
@@ -155,17 +185,21 @@ async function openHistoryModal(defaultTab = 'current') {
             }
         }
     }
-    switchHistoryTab(defaultTab);
     histBackdrop.style.display = 'flex';
     document.body.classList.add('modal-open');
+    histBackdrop.dataset.clearPracticeOnClose = clearPracticeOnClose ? 'true' : 'false';
+    switchHistoryTab(selectedTab);
     historyCloseBtn?.focus();
 }
 
-function renderGlobalHistory() {
+function renderGlobalHistory(scope = 'manual') {
     const container = $('globalHistoryList');
     if (!container) return;
     container.innerHTML = '';
-    const entries = getServerHistoryCache() || [];
+    const allEntries = getServerHistoryCache() || [];
+    const entries = scope === 'manual'
+        ? allEntries.filter((entry) => entry.source_type !== 'curriculum')
+        : allEntries;
     if (!entries.length) {
         container.innerHTML = '<div class="msg" role="status">No completion history yet. Complete a practice to see it here.</div>';
         return;

@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'yoga-shell-v6';
+const SHELL_CACHE = 'yoga-shell-v13';
 const MEDIA_CACHE = 'yoga-offline-media-v1';
 const OFFLINE_MEDIA_PREFIX = '/__offline_media__/';
 const EXCLUDED_OFFLINE_BUCKETS = ['yoga-cards'];
@@ -66,6 +66,7 @@ self.addEventListener('activate', (event) => {
         await caches.delete('yoga-shell-v3');
         await caches.delete('yoga-shell-v4');
         await caches.delete('yoga-shell-v5');
+        await caches.delete('yoga-shell-v6');
         const media = await caches.open(MEDIA_CACHE);
         for (const request of await media.keys()) {
             const path = new URL(request.url).pathname;

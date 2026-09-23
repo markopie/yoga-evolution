@@ -61,7 +61,8 @@ test('optional local Supabase smoke: app can reach the real local runtime', asyn
   const originalId = await page.evaluate(() => window.currentUserId);
   testUsers.push(originalId);
 
-  await page.locator('#curriculumMapBtn').click();
+  await page.locator('#userEmailDisplay').click();
+  await page.locator('#histTabCurriculum').click();
   await expect(page.getByTestId('curriculum-map')).toBeVisible();
   await expect(page.locator('.cr-summary')).toContainText(
     'Week 1 of up to 363',

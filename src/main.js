@@ -5,7 +5,7 @@ async function cacheLoadedAppShell() {
     const controller = new AbortController();
     const cancel = () => controller.abort();
     window.addEventListener('pagehide', cancel, { once: true });
-    const cache = await caches.open('yoga-shell-v5');
+    const cache = await caches.open('yoga-shell-v13');
     const resources = new Set([
         new URL('./', window.location.href).toString(),
         new URL('manifest.webmanifest', window.location.href).toString(),

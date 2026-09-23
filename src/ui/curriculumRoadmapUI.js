@@ -845,7 +845,7 @@ function _renderStationDetail(node, isIdle) {
     const currentLabel = node.is_explicit_current ? 'Today' : 'Next';
     const chipLabel = isToday
         ? currentLabel
-        : { completed: 'Done', repeated: 'Repeated', plateau: 'Plateau', rest: 'Rest', revision: 'Revision', upcoming: 'Ahead' }[node.status] || node.status;
+        : { completed: 'Done', repeated: 'Repeated', plateau: 'Plateau', rest: 'Rest', revision: 'Revision', upcoming: 'Not completed' }[node.status] || node.status;
 
     const eyebrow = isToday
         ? `<div class="cr-detail-week cr-detail-week--today">${node.is_explicit_current ? "Today's Practice" : 'Next Practice'}</div>`
@@ -926,7 +926,13 @@ function renderNodeCard(node, currentNodeId) {
     else if (node.status === 'plateau') chipHtml = '<span class="cr-chip cr-chip--plateau">Plateau</span>';
     else if (node.status === 'repeated') chipHtml = '<span class="cr-chip cr-chip--repeated">Repeated</span>';
     else if (node.status === 'completed') chipHtml = '<span class="cr-chip cr-chip--done">Done</span>';
-    else                                chipHtml = '<span class="cr-chip cr-chip--upcoming">Upcoming</span>';
+    else                                chipHtml = '<span class="cr-chip cr-chip--upcoming">Not completed</span>';
+
+    const composition = Array.isArray(comp) ? comp : [];
+    // A recovery day can still be a real composed practice. Only pure
+    // recovery/rest nodes should be acknowledgement-only cards.
+    const isPlayable = (node.sequence_id != null
+        || composition.some(part => part?.sequence_id != null));
 
     // Source: suppress for rest/revision
     let sourceText = null;
@@ -970,6 +976,7 @@ function renderNodeCard(node, currentNodeId) {
         ${metaRow ? `<div class="cr-node-meta">${metaRow}</div>` : ''}
       </div>
       ${['completed', 'repeated', 'plateau'].includes(node.status) && node.best_rating != null ? `<div class="cr-node-rating">${renderStars(node.best_rating)}</div>` : ''}
+      ${isPlayable ? `<button type="button" class="cr-node-practise" data-curriculum-node-id="${esc(node.id)}">Practise</button>` : ''}
     </div>
     ${partsHtml}
   </div>`;
@@ -1132,7 +1139,7 @@ function renderMapView(placed, currentNodeId) {
     <div class="cr-map-content">
       <div class="cr-map-main">
         <div class="cr-map-topbar">
-          <div class="cr-map-legend">
+        <div class="cr-map-legend">
             ${placed.routes.map(route => `<span class="cr-legend-item"><span class="cr-legend-line" style="background:${route.colour}"></span>${esc(route.label)}</span>`).join('')}
             <span class="cr-legend-item"><span class="cr-legend-dashed"></span>Maintenance</span>
           </div>
@@ -1156,11 +1163,11 @@ function renderRoadmap(assembledNodes, levels, summary) {
     <div class="cr-program-name">${esc(ACTIVE_CURRICULUM_NAME)}</div>
     ${renderSummaryStrip(summary)}
     <div class="cr-view-toggle" role="tablist" aria-label="Journey view">
-      <button class="cr-view-btn cr-view-btn--active" id="cr-btn-map" role="tab" aria-selected="true">Map view</button>
-      <button class="cr-view-btn" id="cr-btn-list" role="tab" aria-selected="false">List view</button>
+      <button class="cr-view-btn" id="cr-btn-map" role="tab" aria-selected="false">Map view</button>
+      <button class="cr-view-btn cr-view-btn--active" id="cr-btn-list" role="tab" aria-selected="true">List view</button>
     </div>
-    <div id="cr-map-container">${renderMapView(placed, summary.current_node_id)}</div>
-    <div id="cr-list-container" style="display:none">${renderListView(levels, summary.current_node_id)}</div>`;
+    <div id="cr-map-container" style="display:none">${renderMapView(placed, summary.current_node_id)}</div>
+    <div id="cr-list-container">${renderListView(levels, summary.current_node_id)}</div>`;
 }
 
 // ─── View toggle ──────────────────────────────────────────────────────────────
@@ -1210,18 +1217,53 @@ function wireListControls() {
     collapse.addEventListener('click', () => setAll(false));
 }
 
+function wirePracticeButtons() {
+    const body = document.getElementById('curriculumMapBody');
+    if (!body || body.dataset.practiceButtonsWired === 'true') return;
+    body.dataset.practiceButtonsWired = 'true';
+
+    body.addEventListener('click', async (event) => {
+        const button = event.target.closest('.cr-node-practise');
+        if (!button) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const nodeId = button.getAttribute('data-curriculum-node-id');
+        if (!nodeId || button.disabled) return;
+
+        button.disabled = true;
+        button.textContent = 'Loading…';
+        const progressBackdrop = body.closest('#historyBackdrop');
+        if (progressBackdrop) {
+            progressBackdrop.style.display = 'none';
+            document.body.classList.remove('modal-open');
+        } else {
+            closeCurriculumRoadmap();
+        }
+        try {
+            if (typeof window.startTodayPractice !== 'function') {
+                throw new Error('The curriculum practice flow is unavailable.');
+            }
+            await window.startTodayPractice(nodeId);
+        } catch (error) {
+            console.error('[curriculumRoadmapUI] Failed to open selected practice:', error);
+        } finally {
+            button.disabled = false;
+            button.textContent = 'Practise';
+        }
+    });
+}
+
 // ─── Station click handling ───────────────────────────────────────────────────
 
-function wireMapClicks(assembledNodes, currentNodeId) {
+function wireMapClicks(assembledNodes, currentNodeId, body) {
     const model = buildLayout(assembledNodes);
-    const backdrop = document.getElementById('curriculumMapBackdrop');
-    if (!backdrop) return;
+    if (!body) return;
 
     function handleSelect(stationKey) {
         const station = sourceStationByKey(model, stationKey);
         if (!station) return;
 
-        const mapScroll = document.querySelector('#curriculumMapBackdrop .cr-map-scroll');
+        const mapScroll = body.querySelector('.cr-map-scroll');
         if (mapScroll) mapScroll.innerHTML = renderMap(model, currentNodeId, stationKey);
 
         const detailWrap = document.getElementById('cr-detail-wrap');
@@ -1233,36 +1275,33 @@ function wireMapClicks(assembledNodes, currentNodeId) {
         }
     }
 
-    backdrop.addEventListener('click', e => {
+    body.onclick = e => {
         const circle = e.target.closest('.cr-map-hit-target, .cr-map-station');
         if (circle) handleSelect(circle.getAttribute('data-station-key'));
-    });
+    };
 
-    backdrop.addEventListener('keydown', e => {
+    body.onkeydown = e => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
         const circle = e.target.closest('.cr-map-hit-target, .cr-map-station');
         if (!circle) return;
         e.preventDefault();
         handleSelect(circle.getAttribute('data-station-key'));
-    });
+    };
 }
 
 // ─── Open / close ─────────────────────────────────────────────────────────────
 
-async function openCurriculumRoadmap() {
-    const backdrop = document.getElementById('curriculumMapBackdrop');
+export async function openCurriculumRoadmap({ completionNotice = null, embedded = false } = {}) {
+    const backdrop = document.getElementById('historyBackdrop');
     const body     = document.getElementById('curriculumMapBody');
     if (!backdrop || !body) return;
 
-    roadmapTriggerBeforeOpen = document.getElementById('curriculumMapBtn')
-        || document.activeElement;
     captureDurationDialPosition();
 
     // Show modal immediately with loading state
     backdrop.style.display = 'flex';
     document.body.classList.add('modal-open');
     body.innerHTML = '<div class="cr-loading cr-loading--full">Loading curriculum map...</div>';
-    document.getElementById('curriculumMapCloseBtn')?.focus();
 
     try {
         const { nodes, completions } = await loadRoadmapData();
@@ -1278,10 +1317,18 @@ async function openCurriculumRoadmap() {
         const summary        = buildSummary(levels, assembledNodes, currentNode);
 
         body.innerHTML = renderRoadmap(assembledNodes, levels, summary);
+        if (completionNotice) {
+            const notice = document.createElement('div');
+            notice.className = 'cr-completion-notice';
+            notice.setAttribute('role', 'status');
+            notice.innerHTML = `<strong>Practice complete</strong><span>${esc(completionNotice.title || 'Your practice has been recorded.')} · Rating ${esc(completionNotice.rating)}</span>`;
+            body.prepend(notice);
+        }
 
         wireViewToggle();
         wireListControls();
-        wireMapClicks(assembledNodes, effectiveCurrentNodeId);
+        wirePracticeButtons();
+        wireMapClicks(assembledNodes, effectiveCurrentNodeId, body);
     } catch (err) {
         console.error('[curriculumRoadmapUI] Failed to load roadmap:', err);
         body.innerHTML = `<div class="cr-loading cr-loading--error">Failed to load curriculum map. Please try again.</div>`;
@@ -1289,7 +1336,7 @@ async function openCurriculumRoadmap() {
 }
 
 function closeCurriculumRoadmap() {
-    const backdrop = document.getElementById('curriculumMapBackdrop');
+    const backdrop = document.getElementById('historyBackdrop');
     if (backdrop) backdrop.style.display = 'none';
     document.body.classList.remove('modal-open');
     restoreDurationDialPosition();
@@ -1297,42 +1344,12 @@ function closeCurriculumRoadmap() {
     roadmapTriggerBeforeOpen = null;
 }
 
+export function restoreRoadmapState() {
+    restoreDurationDialPosition();
+}
+
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 export function setupCurriculumRoadmapUI() {
-    const btn = document.getElementById('curriculumMapBtn');
-    if (!btn) return;
-
-    btn.style.display = '';
-
-    btn.addEventListener('click', () => openCurriculumRoadmap());
-
-    const closeBtn = document.getElementById('curriculumMapCloseBtn');
-    if (closeBtn) closeBtn.addEventListener('click', () => closeCurriculumRoadmap());
-
-    // Close on backdrop click
-    const backdrop = document.getElementById('curriculumMapBackdrop');
-    if (backdrop) {
-        backdrop.addEventListener('click', e => {
-            if (e.target === backdrop) closeCurriculumRoadmap();
-        });
-        // Close on Escape
-        document.addEventListener('keydown', e => {
-            if (e.key === 'Escape' && backdrop.style.display !== 'none') closeCurriculumRoadmap();
-            if (e.key !== 'Tab' || backdrop.style.display === 'none') return;
-            const focusable = [...backdrop.querySelectorAll(
-                'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
-            )].filter(element => element.offsetParent !== null);
-            if (!focusable.length) return;
-            const first = focusable[0];
-            const last = focusable.at(-1);
-            if (e.shiftKey && document.activeElement === first) {
-                e.preventDefault();
-                last.focus();
-            } else if (!e.shiftKey && document.activeElement === last) {
-                e.preventDefault();
-                first.focus();
-            }
-        });
-    }
+    window.openCurriculumRoadmap = openCurriculumRoadmap;
 }
