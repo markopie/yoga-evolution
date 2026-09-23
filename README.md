@@ -7,8 +7,10 @@ Yoga Evolution separates the application from its curriculum data. This reposito
 ## Run locally
 
 1. Install dependencies with `npm ci`.
-2. Copy `.env.example` to `.env.local` and configure a compatible Supabase project with a publishable key.
+2. Copy `.env.example` to `.env.local` and configure the hosted Supabase project with its publishable key. The hosted URL and key use the same names as the GitHub Actions `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` settings.
 3. Start the app with `npm run dev`.
+
+The repository's normal/testing app must use hosted Supabase. The local Supabase stack is reserved for private personal data and should only be selected intentionally by changing `.env.local` to the local URL and local publishable key. GitHub Actions secrets are not available to a local dev server, and GitHub will not show secret values after they are saved, so copy the hosted publishable key from the Supabase project settings into the untracked `.env.local` file. Never commit that file or a service-role/secret key.
 
 Run checks with `npm test`, `npm run build`, and `npm run test:browser`.
 

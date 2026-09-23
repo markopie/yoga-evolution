@@ -111,6 +111,11 @@ export function normalizeCompletionOperation(item = {}) {
     const rows = Array.isArray(item.rows) ? item.rows : [];
     const createdAt = item.createdAt || new Date().toISOString();
     const operationId = item.operationId || item.id || rows[0]?.id || crypto.randomUUID();
+    // Incomplete/reset sessions are retained for history, but can never block
+    // the completed-practice feeling prompt.
+    const hasIncompleteRow = rows.some((row) => String(row?.status || '').toLowerCase() === 'incomplete');
+    const explicitlyPending = item.ratingPending ?? !rows.some((row) => row.rating != null);
+    const ratingPending = hasIncompleteRow ? false : explicitlyPending;
     return {
         id: operationId,
         operationId,
@@ -118,7 +123,7 @@ export function normalizeCompletionOperation(item = {}) {
         rowIds: rows.map((row) => row.id).filter(Boolean),
         rows,
         rating: item.rating ?? rows.find((row) => row.rating != null)?.rating ?? null,
-        ratingPending: item.ratingPending ?? !rows.some((row) => row.rating != null),
+        ratingPending,
         remoteSaved: item.remoteSaved === true,
         status: item.status || 'pending',
         attempts: Number(item.attempts || 0),
@@ -138,7 +143,9 @@ export async function queueCompletionRows(rows, options = {}) {
         rows,
         userId: options.userId || rows[0]?.user_id,
         rating: options.rating,
-        ratingPending: options.ratingPending ?? options.awaitingRating ?? true,
+        ratingPending: options.ratingPending
+            ?? options.awaitingRating
+            ?? rows.some((row) => String(row?.status || '').toLowerCase() === 'completed'),
         createdAt: options.createdAt,
     });
     await transaction(COMPLETION_STORE, 'readwrite', (store) => {

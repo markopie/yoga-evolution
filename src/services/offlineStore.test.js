@@ -29,3 +29,12 @@ test('keeps multi-row curriculum completion and rating together', () => {
     assert.equal(operation.userId, 'user-1');
     assert.equal(operation.ratingPending, true);
 });
+
+test('incomplete completion never becomes rating pending', () => {
+    const operation = normalizeCompletionOperation({
+        id: 'reset-1',
+        rows: [{ id: 'reset-1', user_id: 'user-1', status: 'incomplete' }],
+        ratingPending: true,
+    });
+    assert.equal(operation.ratingPending, false);
+});

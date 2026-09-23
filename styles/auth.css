@@ -48,9 +48,11 @@
     min-width: 0;
 }
 .profile-controls legend { font-weight: 700; margin-bottom: 12px; }
-.device-profile-list { display: grid; gap: 12px; }
-.device-profile-row { display: flex; align-items: center; gap: 8px; }
-.device-profile-card { flex: 1; min-height: 52px; overflow-wrap: anywhere; }
+.device-profile-list { display: grid; gap: 10px; }
+.device-profile-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; gap: 8px; }
+.device-profile-card { min-height: 52px; overflow-wrap: anywhere; text-align: left; background: var(--color-bg-tertiary); border-color: var(--color-border-secondary); font-weight: 650; box-shadow: inset 4px 0 0 var(--color-accent-primary); }
+.device-profile-card:hover { background: var(--color-bg-hover); border-color: var(--color-accent-primary); }
+.device-profile-row > .secondary { align-self: stretch; min-width: 86px; }
 .profile-device-note, #profileSetupHelp { font-size: 0.9rem; line-height: 1.5; }
 #profileMessage { color: var(--color-text-primary); line-height: 1.5; }
 

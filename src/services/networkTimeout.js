@@ -1,4 +1,4 @@
-export function withNetworkTimeout(promise, timeoutMs = 4000, message = 'The local Yoga server did not respond in time.') {
+export function withNetworkTimeout(promise, timeoutMs = 4000, message = 'The internet connection did not respond in time.') {
     let timeout;
     return Promise.race([
         promise,

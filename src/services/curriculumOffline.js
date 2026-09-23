@@ -50,7 +50,7 @@ function withTimeout(promise, timeoutMs = NETWORK_TIMEOUT_MS) {
         promise,
         new Promise((_, reject) => {
             timeout = setTimeout(
-                () => reject(new Error('The local Yoga server did not respond in time.')),
+                () => reject(new Error('The internet connection did not respond in time.')),
                 timeoutMs,
             );
         }),

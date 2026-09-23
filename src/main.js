@@ -1,9 +1,11 @@
+import '../styles/main.css';
+
 async function cacheLoadedAppShell() {
     if (!('caches' in window)) return;
     const controller = new AbortController();
     const cancel = () => controller.abort();
     window.addEventListener('pagehide', cancel, { once: true });
-    const cache = await caches.open('yoga-shell-v4');
+    const cache = await caches.open('yoga-shell-v5');
     const resources = new Set([
         new URL('./', window.location.href).toString(),
         new URL('manifest.webmanifest', window.location.href).toString(),

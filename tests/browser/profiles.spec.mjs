@@ -17,10 +17,12 @@ test('create, reopen, and switch profiles without credentials or theme initializ
     const alice = await page.evaluate(() => window.currentUserId);
     await page.reload();
     await expect(page.locator('#mainAppContainer')).toBeVisible();
+    await page.locator('#settingsToggleButton').click();
     await page.locator('#signOutBtn').click();
     await expect(page.locator('#deviceProfileList')).toContainText('Alice');
     await createProfile(page, 'Bob');
     expect(await page.evaluate(() => window.currentUserId)).not.toBe(alice);
+    await page.locator('#settingsToggleButton').click();
     await page.locator('#signOutBtn').click();
     await page.getByRole('button', { name: 'Alice', exact: true }).click();
     await expect(page.locator('#mainAppContainer')).toBeVisible();
@@ -32,7 +34,7 @@ test('profile files transfer progress and settings as an independent copy withou
     await createProfile(page, 'Alice');
     const originalId = await page.evaluate(() => window.currentUserId);
     await page.getByRole('button', { name: /start today's practice/i }).click();
-    await expect(page.locator('#curriculumPracticeSummary')).toContainText('Week 1, Day 1');
+    await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 1/);
     await expect(page.locator('#practiceWorkspace')).toBeVisible();
     await page.evaluate(() => window.markCurrentCurriculumNodeCompleteForTesting());
     await page.getByRole('button', { name: /good/i }).click();
@@ -40,7 +42,7 @@ test('profile files transfer progress and settings as an independent copy withou
     await page.getByRole('button', { name: 'Preview first pose', exact: true }).click();
     await page.locator('#themeToggle').click();
     const theme = await page.locator('html').getAttribute('data-theme');
-    await page.locator('#appSettingsPanel > summary').click();
+    await page.locator('#settingsToggleButton').click();
     const downloaded = page.waitForEvent('download');
     await page.locator('#exportProfileBtn').click();
     const download = await downloaded;
@@ -55,8 +57,9 @@ test('profile files transfer progress and settings as an independent copy withou
     expect(await page.evaluate(() => window.currentUserId)).not.toBe(originalId);
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
     await page.getByRole('button', { name: /start today's practice/i }).click();
-    await expect(page.locator('#curriculumPracticeSummary')).toContainText('Week 1, Day 2');
+    await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 2/);
     await page.getByRole('button', { name: 'Preview first pose', exact: true }).click();
+    await page.locator('#settingsToggleButton').click();
     await page.locator('#signOutBtn').click();
     await expect(page.locator('#deviceProfileList')).toContainText('Alice (copy)');
     await expect(page.locator('#deviceProfileList')).toContainText('Alice');
@@ -64,6 +67,7 @@ test('profile files transfer progress and settings as an independent copy withou
 
 test('bad profile files leave saved profiles unchanged', async ({ page }) => {
     await createProfile(page, 'Alice');
+    await page.locator('#settingsToggleButton').click();
     await page.locator('#signOutBtn').click();
     await expect(page.locator('#loginScreen')).toHaveAttribute('data-ready', 'true');
     await page.locator('#profileImportFile').setInputFiles({ name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"format":"not-yoga"}') });

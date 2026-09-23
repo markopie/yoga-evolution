@@ -32,7 +32,7 @@ test('Start Today loads a playable practice and rating advances to the next node
   await expect(page.locator('#resetCurriculumTestProgressBtn')).toBeHidden();
 
   await page.getByRole('button', { name: /start today's practice/i }).click();
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Week 1, Day 1');
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 1/);
   await expect(page.locator('#poseName')).not.toContainText('Select a sequence');
   await expect(page.locator('#practicePlaybackControls')).toBeVisible();
   await expect(page.locator('#practiceWorkspace')).toBeVisible();
@@ -42,7 +42,7 @@ test('Start Today loads a playable practice and rating advances to the next node
   await page.getByRole('button', { name: /good/i }).click();
 
   await expect(page.locator('#ratingOverlay')).toBeHidden();
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Week 1, Day 2');
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 2/);
 });
 
 test('first Focus Mode entry resumes its countdown if the opening audio stalls', async ({ page }) => {
@@ -92,14 +92,14 @@ test('low completion rating repeats the same curriculum node', async ({ page }) 
   await openProfile(page);
 
   await page.getByRole('button', { name: /start today's practice/i }).click();
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Week 1, Day 1');
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 1/);
 
   await page.evaluate(() => window.markCurrentCurriculumNodeCompleteForTesting());
   await expect(page.locator('#ratingOverlay')).toBeVisible();
   await page.getByRole('button', { name: /hard/i }).click();
 
   await expect(page.locator('#ratingOverlay')).toBeHidden();
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Week 1, Day 1');
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 1/);
 });
 
 test('three easy ratings can skip remaining nodes in a mastery repeat group', async ({ page }) => {
@@ -114,7 +114,7 @@ test('three easy ratings can skip remaining nodes in a mastery repeat group', as
   await page.getByRole('button', { name: /start today's practice/i }).click();
 
   for (let day = 1; day <= 3; day += 1) {
-    await expect(page.locator('#curriculumPracticeSummary')).toContainText(`Week 1, Day ${day}`);
+    await expect(page.locator('#curriculumPracticeSummary')).toContainText(new RegExp(`Week 1 [·,] Day ${day}`));
     await page.evaluate(() => window.markCurrentCurriculumNodeCompleteForTesting());
     await expect(page.locator('#ratingOverlay')).toBeVisible();
     await page.getByRole('button', { name: /good/i }).click();
@@ -124,7 +124,7 @@ test('three easy ratings can skip remaining nodes in a mastery repeat group', as
       window.currentCurriculumPractice?.curriculum_node_id)).toBe(day === 3 ? 9005 : 9001 + day);
   }
 
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Week 1, Day 5');
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 5/);
   await expect.poll(() => page.evaluate(() => window.__masteryPrompt))
     .toContain('three times in a row');
 });
@@ -133,8 +133,8 @@ test('Start Today can load composed and recovery curriculum nodes', async ({ pag
   await openProfile(page);
 
   await page.evaluate(() => window.startTodayPractice(9004));
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Light on Yoga');
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Light on Pranayama');
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Mock Combined Asana');
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Mock Quiet Pranayama');
   await expect(page.locator('#poseName')).not.toContainText('Select a sequence');
 
   await page.evaluate(() => window.startTodayPractice(9007));
@@ -157,7 +157,7 @@ test('optional curriculum stage asks once, supports not now, and persists accept
     await dialog.accept();
   });
   await page.evaluate(() => window.startTodayPractice(9010));
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Week 3, Day 1');
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 3 [·,] Day 1/);
   await expect(page.locator('#practiceWorkspace')).toBeVisible();
 
   let repeatedPrompt = false;
@@ -166,7 +166,7 @@ test('optional curriculum stage asks once, supports not now, and persists accept
     await dialog.dismiss();
   });
   await page.evaluate(() => window.startTodayPractice(9010));
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Week 3, Day 1');
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 3 [·,] Day 1/);
   expect(repeatedPrompt).toBe(false);
 });
 
@@ -259,7 +259,7 @@ test('installed app cold-starts, advances, and reopens with the computer unavail
     await navigator.serviceWorker.ready;
   });
   await expect.poll(async () => page.evaluate(async () => {
-    const cache = await caches.open('yoga-shell-v4');
+    const cache = await caches.open('yoga-shell-v5');
     return (await cache.keys()).length;
   })).toBeGreaterThan(5);
 
@@ -282,18 +282,18 @@ test('installed app cold-starts, advances, and reopens with the computer unavail
     .toHaveText('Offline');
 
   await page.getByRole('button', { name: /start today's practice/i }).click();
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Week 1, Day 1');
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 1/);
   await expect(page.locator('#practiceWorkspace')).toBeVisible();
 
   await page.evaluate(() => window.markCurrentCurriculumNodeCompleteForTesting());
   await expect(page.locator('#ratingOverlay')).toBeVisible();
   await page.getByRole('button', { name: /good/i }).click();
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Week 1, Day 2');
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 2/);
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('#mainAppContainer')).toBeVisible({ timeout: 10_000 });
   await page.getByRole('button', { name: /start today's practice/i }).click();
-  await expect(page.locator('#curriculumPracticeSummary')).toContainText('Week 1, Day 2');
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 2/);
 
   await page.evaluate(() => document.getElementById('curriculumMapBtn').click());
   await expect(page.getByTestId('curriculum-map')).toBeVisible();

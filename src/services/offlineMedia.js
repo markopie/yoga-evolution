@@ -10,6 +10,7 @@ import { refreshCurriculumSnapshot } from './curriculumOffline.js';
 export const OFFLINE_MEDIA_CACHE = 'yoga-offline-media-v1';
 export const ALL_MEDIA_PACK = 'all-current-media';
 const INSTALLED_PATHS_KEY = 'yoga-offline-media-paths-v1';
+const EXCLUDED_OFFLINE_BUCKETS = new Set(['yoga-cards']);
 
 function mediaManifestVersion(manifest) {
     return manifest.reduce(
@@ -24,6 +25,55 @@ function canonicalPath(value) {
         .split('/')
         .filter(Boolean)
         .join('/');
+}
+
+function storageReference(value) {
+    const raw = String(value || '').trim();
+    if (!raw || /^(?:data|blob):/i.test(raw)) return null;
+    try {
+        const url = new URL(raw, window.location.origin);
+        const match = url.pathname.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/i);
+        if (match) return { bucket: decodeURIComponent(match[1]), objectPath: canonicalPath(match[2].split('/').map(decodeURIComponent).join('/')) };
+    } catch { /* relative filenames are handled below */ }
+    return { bucket: 'audio-assets', objectPath: canonicalPath(raw.replace(/^\//, '')) };
+}
+
+function addAudioReference(references, value) {
+    const reference = storageReference(value);
+    if (reference?.objectPath) references.set(assetKey(reference.bucket, reference.objectPath), reference);
+}
+
+/** Return every audio URL the playback engine can request from loaded data. */
+export function referencedAudioAssets({ courses = [], asanaLibrary = {}, serverAudioFiles = [] } = {}) {
+    const references = new Map();
+    const addPose = (poseId) => {
+        const asana = asanaLibrary?.[poseId] || asanaLibrary?.[String(poseId)] || null;
+        addAudioReference(references, asana?.audio);
+        Object.values(asana?.variations || {}).forEach((variation) => {
+            addAudioReference(references, variation?.audio || variation?.audio_url);
+        });
+        // Do not invent filename variants here. Storage paths are case-sensitive
+        // and the media manifest/server file list is the source of truth.
+    };
+    (courses || []).forEach((course) => (course?.poses || []).forEach((pose) => addPose(pose?.[0])));
+    Object.entries(asanaLibrary || {}).forEach(([id, asana]) => addPose(asana?.id || id));
+    (serverAudioFiles || []).forEach((file) => addAudioReference(references, file));
+    // These are file-backed side cues. Prop cues remain speech synthesis only.
+    addAudioReference(references, 'left_side.mp3');
+    addAudioReference(references, 'right_side.mp3');
+    return [...references.values()];
+}
+
+export function missingManifestAudioReferences(manifest, references) {
+    const available = new Set((manifest || []).map((item) => assetKey(item.bucket, item.objectPath)));
+    const availableInsensitive = new Set((manifest || [])
+        .filter((item) => item.mediaType === 'audio' || item.bucket === 'audio-assets')
+        .map((item) => assetKey(item.bucket, item.objectPath).toLowerCase()));
+    return (references || []).filter((reference) => {
+        const exactKey = assetKey(reference.bucket, reference.objectPath);
+        return !available.has(exactKey)
+            && !availableInsensitive.has(exactKey.toLowerCase());
+    });
 }
 
 function isPosePhotoAsset(asset) {
@@ -60,7 +110,22 @@ export function hasOfflineAsset(bucket, objectPath) {
 }
 
 function rememberInstalledAssets(keys) {
-    localStorage.setItem(INSTALLED_PATHS_KEY, JSON.stringify([...keys].sort()));
+   localStorage.setItem(INSTALLED_PATHS_KEY, JSON.stringify([...keys].sort()));
+}
+
+async function removeExcludedOfflineAssets() {
+    const cache = await caches.open(OFFLINE_MEDIA_CACHE);
+    for (const request of await cache.keys()) {
+        const path = new URL(request.url).pathname;
+        if ([...EXCLUDED_OFFLINE_BUCKETS].some((bucket) => path.includes(`/__offline_media__/${bucket}/`))) {
+            await cache.delete(request);
+        }
+    }
+    const installed = installedOfflineAssetKeys();
+    for (const key of [...installed]) {
+        if ([...EXCLUDED_OFFLINE_BUCKETS].some((bucket) => key.startsWith(`${bucket}/`))) installed.delete(key);
+    }
+    rememberInstalledAssets(installed);
 }
 
 export async function loadMediaManifest() {
@@ -74,7 +139,7 @@ export async function loadMediaManifest() {
         .order('original_bucket')
         .order('original_path');
     if (error) throw error;
-    return (data || []).filter((asset) => !isPosePhotoAsset(asset)).map((asset) => ({
+    const manifest = (data || []).filter((asset) => !isPosePhotoAsset(asset) && !EXCLUDED_OFFLINE_BUCKETS.has(asset.original_bucket)).map((asset) => ({
         id: asset.id,
         mediaType: asset.media_type,
         bucket: asset.original_bucket,
@@ -93,6 +158,32 @@ export async function loadMediaManifest() {
             : [],
         packKeys: [ALL_MEDIA_PACK],
     }));
+    const references = referencedAudioAssets({
+        courses: window.courses,
+        asanaLibrary: window.asanaLibrary,
+        serverAudioFiles: window.serverAudioFiles,
+    });
+    const missing = missingManifestAudioReferences(manifest, references)
+        .filter((reference) => !EXCLUDED_OFFLINE_BUCKETS.has(reference.bucket));
+    // A storage manifest row is preferred, but a referenced public audio file
+    // can still be downloaded safely when the backfill has not caught up.
+    for (const reference of missing) {
+        manifest.push({
+            id: `referenced-audio:${assetKey(reference.bucket, reference.objectPath)}`,
+            mediaType: 'audio',
+            bucket: reference.bucket,
+            objectPath: reference.objectPath,
+            contentHash: '',
+            byteSize: 0,
+            updatedAt: '',
+            access: 'public',
+            available: true,
+            sourceRows: [],
+            packKeys: [ALL_MEDIA_PACK],
+            manifestOnlyReference: true,
+        });
+    }
+    return manifest;
 }
 
 async function signedPrivateUrls(assets) {
@@ -152,18 +243,40 @@ export async function downloadAllMedia({ signal, onProgress } = {}) {
         throw new Error('This browser does not support verified offline media.');
     }
     if (navigator.storage?.persist) await navigator.storage.persist().catch(() => false);
+    await removeExcludedOfflineAssets();
 
-    await refreshCurriculumSnapshot({ userId: window.currentUserId });
-    const manifest = await loadMediaManifest();
-    if (!manifest.length) throw new Error('The local media manifest is empty. Run the manifest backfill first.');
-    const privateUrls = await signedPrivateUrls(manifest);
+    try {
+        await refreshCurriculumSnapshot({ userId: window.currentUserId });
+    } catch (error) {
+        throw new Error(`Could not refresh offline practice data: ${error?.message || error}`, { cause: error });
+    }
+    let manifest;
+    try {
+        manifest = await loadMediaManifest();
+    } catch (error) {
+        throw new Error(`Could not load the offline media catalogue: ${error?.message || error}`, { cause: error });
+    }
+    if (!manifest.length) {
+        const error = new Error('The local media manifest is empty. Populate the media catalog before downloading offline media.');
+        error.code = 'NO_MEDIA_MANIFEST';
+        throw error;
+    }
+    let privateUrls;
+    try {
+        privateUrls = await signedPrivateUrls(manifest);
+    } catch (error) {
+        throw new Error(`Could not authorize private offline media: ${error?.message || error}`, { cause: error });
+    }
     const cache = await caches.open(OFFLINE_MEDIA_CACHE);
+    const previousPack = await loadPackState(ALL_MEDIA_PACK);
     const completed = installedOfflineAssetKeys();
     const totalBytes = manifest.reduce((sum, item) => sum + item.byteSize, 0);
     let completedBytes = 0;
     let completedCount = 0;
+    let downloadedAny = false;
 
-    for (const asset of manifest) {
+    try {
+      for (const asset of manifest) {
         if (signal?.aborted) throw new DOMException('Download cancelled', 'AbortError');
         const key = assetKey(asset.bucket, asset.objectPath);
         const cacheUrl = offlineMediaUrl(asset.bucket, asset.objectPath);
@@ -172,11 +285,17 @@ export async function downloadAllMedia({ signal, onProgress } = {}) {
         if (existing && (!asset.contentHash || existingHash === asset.contentHash)) {
             completed.add(key);
         } else {
-            const response = await fetch(downloadUrl(asset, privateUrls), {
-                signal,
-                credentials: 'omit',
-            });
-            await cache.put(cacheUrl, await verifiedResponse(response, asset));
+            downloadedAny = true;
+            try {
+                const response = await fetch(downloadUrl(asset, privateUrls), {
+                    signal,
+                    credentials: 'omit',
+                });
+                await cache.put(cacheUrl, await verifiedResponse(response, asset));
+            } catch (error) {
+                if (error?.name === 'AbortError') throw error;
+                throw new Error(`Could not download ${asset.bucket}/${asset.objectPath}: ${error?.message || error}`, { cause: error });
+            }
             completed.add(key);
         }
         completedCount += 1;
@@ -190,6 +309,11 @@ export async function downloadAllMedia({ signal, onProgress } = {}) {
                 completedBytes,
                 totalBytes,
                 manifestVersion: mediaManifestVersion(manifest),
+                ...(completedCount === manifest.length ? {
+                    installedAt: downloadedAny
+                        ? new Date().toISOString()
+                        : (previousPack?.installedAt || new Date().toISOString()),
+                } : {}),
             });
         }
         onProgress?.({
@@ -199,6 +323,18 @@ export async function downloadAllMedia({ signal, onProgress } = {}) {
             totalBytes,
             asset,
         });
+      }
+    } catch (error) {
+        await savePackState(ALL_MEDIA_PACK, {
+            status: completedCount ? 'partial' : 'failed',
+            completedCount,
+            totalCount: manifest.length,
+            completedBytes,
+            totalBytes,
+            manifestVersion: mediaManifestVersion(manifest),
+            ...(previousPack?.installedAt ? { installedAt: previousPack.installedAt } : {}),
+        }).catch(() => {});
+        throw error;
     }
     return await loadPackState(ALL_MEDIA_PACK);
 }
@@ -226,13 +362,14 @@ export async function removeOfflineMedia({ privateOnly = false } = {}) {
 }
 
 export async function offlineMediaStatus() {
-    const [pack, estimate, manifest] = await Promise.all([
+    const [pack, estimate, manifestResult] = await Promise.all([
         loadPackState(ALL_MEDIA_PACK).catch(() => null),
         navigator.storage?.estimate?.().catch(() => null),
         navigator.onLine && window.currentUserId
-            ? loadMediaManifest().catch(() => [])
-            : Promise.resolve([]),
+            ? loadMediaManifest().then((manifest) => ({ manifest, error: null })).catch((error) => ({ manifest: [], error }))
+            : Promise.resolve({ manifest: [], error: null }),
     ]);
+    const manifest = manifestResult.manifest;
     const currentManifestVersion = mediaManifestVersion(manifest);
     const updateAvailable = Boolean(
         pack?.status === 'installed'
@@ -246,9 +383,11 @@ export async function offlineMediaStatus() {
         updateAvailable,
         requiredBytes: manifest.reduce((sum, item) => sum + item.byteSize, 0),
         requiredCount: manifest.length,
+        manifestEmpty: Boolean(navigator.onLine && window.currentUserId && !manifest.length),
         installedCount: installedOfflineAssetKeys().size,
         storageUsage: Number(estimate?.usage || 0),
         storageQuota: Number(estimate?.quota || 0),
         online: navigator.onLine,
+        manifestError: manifestResult.error ? String(manifestResult.error?.message || manifestResult.error) : null,
     };
 }

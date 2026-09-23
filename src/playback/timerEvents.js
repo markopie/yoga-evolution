@@ -373,6 +373,7 @@ async function triggerSequenceEnd() {
                     status: 'Completed',
                     sequence_id: curriculumPractice?.resolved_sequence_id || window.currentSequence?.supabaseId || window.currentSequence?.id || null,
                     curriculum_node_id: curriculumPractice?.curriculum_node_id || null,
+                    source_type: curriculumPractice?.curriculum_node_id != null ? 'curriculum' : 'manual',
                     completion_items: typeof window.getCurriculumCompletionItems === 'function'
                         ? window.getCurriculumCompletionItems(curriculumPractice)
                         : null,

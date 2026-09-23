@@ -54,6 +54,6 @@ test('offline controls are hidden inside Settings while healthy', async ({ page 
   await signIn(page);
   await expect(page.locator('#syncStatusButton')).toBeHidden();
   await expect(page.locator('#offlineMediaPanel')).not.toBeVisible();
-  await page.locator('#appSettingsPanel > summary').click();
+  await page.locator('#settingsToggleButton').click();
   await expect(page.locator('#offlineMediaPanel')).toBeVisible();
 });

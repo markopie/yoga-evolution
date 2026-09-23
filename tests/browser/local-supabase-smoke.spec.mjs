@@ -108,7 +108,7 @@ test('optional local Supabase smoke: app can reach the real local runtime', asyn
   expect(writeError).toBeUndefined();
   await page.reload();
   await expect(page.locator('#mainAppContainer')).toBeVisible();
-  await page.locator('#appSettingsPanel > summary').click();
+  await page.locator('#settingsToggleButton').click();
   const downloadPromise = page.waitForEvent('download');
   await page.locator('#exportProfileBtn').click();
   const download = await downloadPromise;

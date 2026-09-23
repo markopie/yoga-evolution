@@ -23,6 +23,17 @@ function joinPath(base, file) {
     return b + f;
 }
 
+/** Resolve all audio shapes accepted by the data layer, including storage URLs. */
+export function resolveAudioSource(file, base = AUDIO_BASE) {
+    const value = String(file || '').trim();
+    if (!value) return null;
+    if (/^(?:https?:|blob:|data:)/i.test(value)) return value;
+    if (value.startsWith('/storage/v1/')) {
+        return new URL(value, window.location.origin).toString();
+    }
+    return joinPath(base, value);
+}
+
 /**
  * Plays a fresh side cue file for each pose. Fresh elements avoid stale mobile
  * audio state after a service-worker update or an offline-pack refresh.
@@ -306,7 +317,7 @@ export function playPoseMainAudio(asana, poseLabel = null, onComplete = null, va
             const v = asana.variations[variationKey];
             const rawVarAudio = v.audio || v.audio_url || null;
             if (rawVarAudio) {
-                varAudio = joinPath(AUDIO_BASE, rawVarAudio);
+                varAudio = resolveAudioSource(rawVarAudio);
             } else {
                 // Fallback: speak the variation's title if no audio_url exists
                 varSpeakText = v.title || variationKey;
@@ -350,10 +361,10 @@ export function playPoseMainAudio(asana, poseLabel = null, onComplete = null, va
                 const match   = fileList.find(f => f.startsWith(`${idStr}_`) || f === `${idStr}.mp3`);
 
                 if (match) {
-                    src = joinPath(AUDIO_BASE, match);
+                    src = resolveAudioSource(match);
                 } else if (idStr) {
                     const cleanName = (asana.english_name || asana.name || "").replace(/[^a-zA-Z0-9]/g, "");
-                    src = joinPath(AUDIO_BASE, `${idStr}_${cleanName}.mp3`);
+                    src = resolveAudioSource(`${idStr}_${cleanName}.mp3`);
                 }
 
                 // If still no src, prepare fallback text from asana name

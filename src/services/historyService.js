@@ -2,7 +2,6 @@
 
 import { supabase } from "./supabaseClient.js";
 import { liveProfileSession } from "./deviceProfiles.js";
-import { $ } from "../utils/dom.js";
 import {
    listQueuedCompletions,
    queueCompletionRows,
@@ -12,6 +11,7 @@ import {
    updateQueuedCompletionRating,
 } from "./offlineStore.js";
 import { setSyncStatus, SYNC_STATES } from './syncStatus.js';
+import { sequenceHash, sequenceSnapshot } from './sequenceOwnership.js';
 
 const COMPLETION_KEY = "yogaCompletionLog_v2";
 
@@ -91,6 +91,10 @@ export function seedManualCompletionsOnce() {
 }
 
 let serverHistoryCache = null; // array of unified entries, newest first
+Object.defineProperty(window, 'serverHistoryCache', {
+   configurable: true,
+   get: () => serverHistoryCache,
+});
 
 function sumPoseMinutes(poses = []) {
    if (!Array.isArray(poses) || !poses.length) return null;
@@ -132,12 +136,22 @@ function stripDurationMetadata(payload) {
       duration_scale_used,
       planned_duration_minutes,
       actual_adjusted_duration_minutes,
+      source_type,
+      source_sequence_id,
+      profile_sequence_id,
+      sequence_hash,
+      sequence_snapshot,
       ...legacyPayload
    } = payload;
    void completed;
    void duration_scale_used;
    void planned_duration_minutes;
    void actual_adjusted_duration_minutes;
+   void source_type;
+   void source_sequence_id;
+   void profile_sequence_id;
+   void sequence_hash;
+   void sequence_snapshot;
    return legacyPayload;
 }
 
@@ -148,6 +162,11 @@ function isMissingDurationMetadataColumnError(error) {
       'duration_scale_used',
       'planned_duration_minutes',
       'actual_adjusted_duration_minutes',
+      'source_type',
+      'source_sequence_id',
+      'profile_sequence_id',
+      'sequence_hash',
+      'sequence_snapshot',
    ].some(column => message.includes(column));
 }
 
@@ -178,7 +197,7 @@ export async function fetchServerHistory() {
 
        let query = supabase
           .from('sequence_completions')
-          .select('id, title, category, completed_at')
+          .select('id, title, category, completed_at, source_type, curriculum_node_id, status, rating, duration_seconds, sequence_id')
           .eq('user_id', window.currentUserId);
 
        const { data, error } = await query;
@@ -194,7 +213,13 @@ export async function fetchServerHistory() {
              year: "numeric", month: "2-digit", day: "2-digit",
              hour: "2-digit", minute: "2-digit"
           }),
-          iso: r.completed_at
+          iso: r.completed_at,
+          source_type: r.source_type || (r.curriculum_node_id != null ? 'curriculum' : 'manual'),
+          curriculum_node_id: r.curriculum_node_id ?? null,
+          status: r.status || null,
+          rating: r.rating ?? null,
+          duration_seconds: r.duration_seconds ?? null,
+          sequence_id: r.sequence_id ?? null,
        }));
 
        _rebuildLegacyHistory(serverHistoryCache);
@@ -217,6 +242,7 @@ function buildCompletionRows(title, whenDate, category, durationSeconds, options
          ...buildDurationDialCompletionMetadata(),
          ...(completionOptions.duration_metadata || {}),
       };
+      const snapshot = options?.sequence_snapshot || sequenceSnapshot(window.currentSequence);
 
       const buildPayload = (item = {}) => {
          const payload = {
@@ -227,6 +253,8 @@ function buildCompletionRows(title, whenDate, category, durationSeconds, options
             status: item.status || completionOptions.status || 'Completed',
             completed: durationMetadata.completed !== false,
          };
+         payload.source_type = completionOptions.source_type
+            || (completionOptions.curriculum_node_id != null ? 'curriculum' : 'manual');
 
          const itemDuration = item.duration_seconds ?? durationSeconds;
          if (itemDuration !== null && itemDuration !== undefined && !isNaN(itemDuration)) {
@@ -251,6 +279,15 @@ function buildCompletionRows(title, whenDate, category, durationSeconds, options
          }
          if (completionOptions.curriculum_node_id !== undefined && completionOptions.curriculum_node_id !== null) {
             payload.curriculum_node_id = completionOptions.curriculum_node_id;
+         }
+         for (const field of ['source_sequence_id', 'sequence_hash', 'sequence_snapshot', 'pose_durations', 'profile_sequence_id']) {
+            if (completionOptions[field] !== undefined) payload[field] = completionOptions[field];
+         }
+         if (snapshot && payload.sequence_snapshot === undefined) {
+            payload.sequence_snapshot = snapshot;
+            payload.sequence_hash = completionOptions.sequence_hash || sequenceHash(snapshot);
+            payload.source_sequence_id ||= snapshot.source_sequence_id;
+            payload.profile_sequence_id ||= snapshot.profile_sequence_id;
          }
          payload.user_id = window.currentUserId;
          return payload;
@@ -417,9 +454,10 @@ export async function appendServerHistory(title, whenDate, category = null, dura
    }
 
    const rows = buildCompletionRows(title, whenDate, category, durationSeconds, options);
+   const isCompleted = rows.every((row) => String(row.status || '').toLowerCase() === 'completed');
    const operation = await queueCompletionRows(rows, {
       userId: window.currentUserId,
-      awaitingRating: options?.rating === undefined,
+      awaitingRating: isCompleted && options?.rating === undefined,
       rating: options?.rating,
    });
    window.pendingRatingCompletionIds = rows.map((row) => row.id);
@@ -522,25 +560,6 @@ export function calculateStreak(isoStrings) {
       }
    }
    return streak;
-}
-
-export async function toggleHistoryPanel() {
-   const panel = $("historyPanel");
-   if (!panel) return;
-   const isOpen = panel.style.display !== "none";
-   if (isOpen) { panel.style.display = "none"; return; }
-   panel.style.display = "block";
-   panel.textContent = "Loading…";
-   const hist = await fetchServerHistory();
-   if (!hist.length) { panel.textContent = "No completions recorded yet."; return; }
-   const sorted = [...hist].sort((a, b) => b.ts - a.ts);
-   panel.innerHTML = sorted.map(e =>
-      `<div style="padding:10px;border-bottom:1px solid #f0f0f0;">
-         <div style="font-weight:600;color:#1a1a1a;margin-bottom:4px;">${e.title}</div>
-         <div style="font-size:0.85rem;color:#666;">${e.category || ''}</div>
-         <div style="font-size:0.8rem;color:#999;margin-top:2px;">${e.local}</div>
-       </div>`
-   ).join("");
 }
 
 // Global exposure

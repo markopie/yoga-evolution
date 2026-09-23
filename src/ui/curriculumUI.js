@@ -376,6 +376,11 @@ function loadResolvedSequence(practice) {
             ]),
         }
         : { ...primaryCourse };
+    // Freeze the resolved live curriculum content for this session. A later
+    // refresh or profile edit must not mutate an active practice in place.
+    const frozenSequence = typeof structuredClone === 'function'
+        ? structuredClone(playableSequence)
+        : JSON.parse(JSON.stringify(playableSequence));
 
     const curriculumPracticeState = {
         ...practice,
@@ -401,7 +406,7 @@ function loadResolvedSequence(practice) {
     window.remedialNote = playableSequence.condition_notes || '';
     window.isBriefingActive = true;
     window.pendingSequence = null;
-    window.currentSequence = playableSequence;
+    window.currentSequence = frozenSequence;
     setPracticeWorkspaceVisible(true);
 
     if (typeof window.applySequenceInternal === 'function') {

@@ -4,7 +4,7 @@ import { $, showError, safeListen, normaliseText, setStatus } from '../utils/dom
 import { prefersIAST, setIASTPref, formatHMS, displayName } from '../utils/format.js';
 import { normalizePlate } from '../services/dataAdapter.js';
 import { playbackEngine } from '../playback/timer.js';
-import { openHistoryModal, switchHistoryTab, renderGlobalHistory } from './historyModal.js';
+import { openHistoryModal } from './historyModal.js';
 import { builderRender, openEditCourse, builderOpen, addPoseToBuilder, createRepeatGroup, openLinkSequenceModal } from './builder.js';
 // ── Application State Aliases ────────────────────────────────────────────────
 // ── UI Constants ─────────────────────────────────────────────────────────────
@@ -589,14 +589,9 @@ function setupUIExtras() {
         if (getCurrentSequence()) window.setPose(window.currentIndex);
     });
 
-    safeListen("lastCompletedPill", "click", () => {
-        if (!getCurrentSequence()) return alert("Please select a sequence first.");
-        openHistoryModal("current");
-    });
-
-    safeListen("historyLink", "click", (e) => {
+    safeListen("userEmailDisplay", "click", (e) => {
         e.preventDefault();
-        if (typeof window.toggleHistoryPanel === 'function') window.toggleHistoryPanel();
+        openHistoryModal("global");
     });
 }
 

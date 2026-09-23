@@ -158,6 +158,85 @@ button.tiny {
     flex-wrap: wrap;
 }
 
+.profile-history-trigger {
+    min-width: auto;
+    min-height: 36px;
+    padding: 6px 2px;
+    border: 0;
+    border-radius: 0;
+    color: var(--color-text-secondary);
+    background: transparent;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    box-shadow: none;
+    transform: none;
+}
+
+.profile-history-trigger:hover {
+    color: var(--color-text-primary);
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+}
+
+.history-entry {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--color-border);
+    font-size: 0.9rem;
+}
+
+.history-source-badge {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 2px 6px;
+    border-radius: 8px;
+    background: #eef3f8;
+    color: #456;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.history-entry-details {
+    margin-top: 3px;
+    color: var(--color-text-secondary, #777);
+    font-size: 0.78rem;
+}
+
+.history-streak,
+.history-stats {
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    background: #e8f5e9;
+    color: #2e7d32;
+    font-weight: 600;
+}
+
+.profile-backup-notice {
+    margin: 14px 0;
+    padding: 12px;
+    border: 1px solid color-mix(in srgb, var(--color-primary, #0f6b66) 25%, var(--color-border, #ddd));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--color-primary, #0f6b66) 6%, var(--color-bg-surface, #fff));
+}
+
+.profile-backup-notice p {
+    margin: 6px 0 10px;
+    color: var(--color-text-secondary, #666);
+    font-size: 0.85rem;
+}
+
+.profile-backup-notice__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .curriculum-practice-panel__actions {
     display: flex;
     align-items: center;

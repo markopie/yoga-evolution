@@ -8,8 +8,10 @@ import {
 import { loadCurriculumSnapshot } from '../services/curriculumOffline.js';
 import { syncProfilePreferences } from '../services/profilePreferences.js';
 import { themeManager } from './themeToggle.js';
+import { migrateProfileSequences } from '../services/profileSequenceMigration.js';
 
 const byId = (id) => document.getElementById(id);
+const backupNoticeKey = (userId) => `yoga-profile-backup-notice-v1:${userId}`;
 
 export async function setupProfileUI() {
     const showMessage = (message = '') => {
@@ -49,6 +51,8 @@ export async function setupProfileUI() {
             open.type = 'button';
             open.className = 'device-profile-card';
             open.textContent = profile.name;
+            open.setAttribute('aria-label', profile.name);
+            open.title = `Switch to ${profile.name}`;
             open.addEventListener('click', () => run(async () => {
                 if (navigator.onLine) {
                     if (!supabase) throw new Error('The profile service is not configured.');
@@ -98,8 +102,22 @@ export async function setupProfileUI() {
         } catch (error) { byId('profileSettingsMessage').textContent = error.message; }
     });
 
+    const backupNotice = byId('profileBackupNotice');
+    const showBackupNotice = () => {
+        if (!backupNotice || !window.currentUserId) return;
+        try {
+            const dismissedUntil = Number(localStorage.getItem(backupNoticeKey(window.currentUserId)) || 0);
+            backupNotice.hidden = dismissedUntil > Date.now();
+        } catch { backupNotice.hidden = false; }
+    };
+    const dismissBackupNotice = () => {
+        try { localStorage.setItem(backupNoticeKey(window.currentUserId), String(Date.now() + 30 * 24 * 60 * 60 * 1000)); } catch { /* Continue without the reminder preference. */ }
+        if (backupNotice) backupNotice.hidden = true;
+    };
+    byId('dismissProfileBackupNoticeBtn')?.addEventListener('click', dismissBackupNotice);
+
     const createProfile = async (name, backup = null) => {
-        if (!navigator.onLine || !supabase) throw new Error('Connect to the Yoga server to create or import a profile.');
+        if (!navigator.onLine || !supabase) throw new Error('An internet connection is required to create or import a profile.');
         const { data: previous } = await supabase.auth.getSession();
         changingProfile = true;
         let newSession;
@@ -139,7 +157,7 @@ export async function setupProfileUI() {
         const backup = validateProfileBackup(parsed);
         await createProfile(`${backup.name.slice(0, 53)} (copy)`, backup);
     }));
-    byId('exportProfileBtn').addEventListener('click', async () => {
+    const exportProfile = async () => {
         const button = byId('exportProfileBtn');
         if (button.disabled) return;
         button.disabled = true;
@@ -149,13 +167,17 @@ export async function setupProfileUI() {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `yoga-profile-${backup.name.replace(/[^a-z0-9_-]/gi, '-').slice(0, 60)}.json`;
+            link.download = `Yoga - ${backup.name.replace(/[^a-z0-9_-]/gi, '-').slice(0, 60)} - Backup.json`;
             link.click();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
             byId('profileSettingsMessage').textContent = 'Profile exported. Keep the file somewhere you can find it again.';
+            try { localStorage.setItem(backupNoticeKey(window.currentUserId), String(Date.now() + 90 * 24 * 60 * 60 * 1000)); } catch { /* The export itself succeeded. */ }
+            if (backupNotice) backupNotice.hidden = true;
         } catch (error) { byId('profileSettingsMessage').textContent = error.message; }
         finally { button.disabled = false; }
-    });
+    };
+    byId('exportProfileBtn').addEventListener('click', exportProfile);
+    byId('exportProfileNoticeBtn')?.addEventListener('click', exportProfile);
 
     // Synchronous bookkeeping only: awaiting Auth methods in this callback can deadlock GoTrue.
     supabase?.auth.onAuthStateChange((event, session) => {
@@ -191,7 +213,7 @@ export async function setupProfileUI() {
                 return;
             }
             const verified = await liveProfileSession(supabase, profile.id);
-            if (!verified.valid) throw new Error('Could not open this profile. Check the Yoga server connection, or import your saved profile file.');
+            if (!verified.valid) throw new Error('Could not open this profile. Check your internet connection, or import your saved profile file.');
         } else {
             const snapshot = await loadCurriculumSnapshot({ userId: profile.id });
             if (!snapshot?.nodes?.length) throw new Error('Connect once to download this profile for offline use.');
@@ -203,9 +225,14 @@ export async function setupProfileUI() {
         window.hasLiveProfileSession = online;
         window.isAppAdmin = online && session?.user?.app_metadata?.role === 'admin';
         if (online) await syncProfilePreferences(profile.id).catch(() => {});
+        // Best-effort additive migration. Offline profiles remain usable and
+        // retry this step on the next online profile selection.
+        if (online) await migrateProfileSequences(profile.id).catch((error) =>
+            console.warn('[Profile] Sequence migration deferred:', error.message));
         themeManager.setUserId(profile.id);
         byId('userEmailDisplay').textContent = profile.name;
         byId('profileNameInput').value = profile.name;
+        showBackupNotice();
         byId('connectionModeDisplay').hidden = online;
         byId('connectionModeDisplay').textContent = 'Offline';
         byId('loginScreen').style.display = 'none';

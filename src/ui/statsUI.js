@@ -16,26 +16,6 @@ export function updateTotalAndLastUI() {
     const totalEl = document.getElementById("totalTimePill");
     if (totalEl) totalEl.textContent = `Total: ${formatHMS(total)}`;
 
-    const lastEl = document.getElementById("lastCompletedPill");
-    if (!lastEl) return;
-
-    const title = window.currentSequence?.title ?? null;
-    if (!title) {
-        lastEl.textContent = "Last: –";
-        return;
-    }
-
-    const source = (typeof window.serverHistoryCache !== "undefined" && Array.isArray(window.serverHistoryCache) && window.serverHistoryCache.length)
-            ? window.serverHistoryCache
-            : (typeof window.loadCompletionLog === "function" ? window.loadCompletionLog() : []);
-
-    const last = source
-        .filter(x => x && x.title === title && typeof x.ts === "number")
-        .sort((a, b) => b.ts - a.ts)[0];
-
-    lastEl.textContent = last
-        ? `Last: ${new Date(last.ts).toLocaleString("en-AU", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}`
-        : "Last: –";
 }
 
 window.updateTotalAndLastUI = updateTotalAndLastUI;

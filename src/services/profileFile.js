@@ -3,7 +3,8 @@ import { ACTIVE_CURRICULUM_SLUG } from '../config/curriculumConfig.js';
 export const PROFILE_FILE_LIMIT = 10 * 1024 * 1024;
 const completionFields = ['title', 'category', 'completed_at', 'duration_seconds', 'notes',
     'completed', 'sequence_id', 'curriculum_node_id', 'status', 'rating', 'difficulty_feedback',
-    'duration_scale_used', 'planned_duration_minutes', 'actual_adjusted_duration_minutes'];
+    'duration_scale_used', 'planned_duration_minutes', 'actual_adjusted_duration_minutes',
+    'source_type', 'source_sequence_id', 'profile_sequence_id', 'sequence_hash', 'sequence_snapshot'];
 const pick = (row, fields) => Object.fromEntries(fields.filter((key) => row[key] !== undefined).map((key) => [key, row[key]]));
 
 export function validateProfileBackup(input) {

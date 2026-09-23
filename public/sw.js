@@ -1,6 +1,7 @@
-const SHELL_CACHE = 'yoga-shell-v4';
+const SHELL_CACHE = 'yoga-shell-v5';
 const MEDIA_CACHE = 'yoga-offline-media-v1';
 const OFFLINE_MEDIA_PREFIX = '/__offline_media__/';
+const EXCLUDED_OFFLINE_BUCKETS = ['yoga-cards'];
 const APP_SHELL = [
     './',
     './manifest.webmanifest',
@@ -63,10 +64,11 @@ self.addEventListener('activate', (event) => {
     event.waitUntil((async () => {
         await caches.delete('yoga-shell-v2');
         await caches.delete('yoga-shell-v3');
+        await caches.delete('yoga-shell-v4');
         const media = await caches.open(MEDIA_CACHE);
         for (const request of await media.keys()) {
             const path = new URL(request.url).pathname;
-            if (path.includes('/__offline_media__/light-on-yoga-plates/') || path.includes('/__offline_media__/yoga-cards/')) {
+            if (path.includes('/__offline_media__/light-on-yoga-plates/') || EXCLUDED_OFFLINE_BUCKETS.some((bucket) => path.includes(`/__offline_media__/${bucket}/`))) {
                 await media.delete(request);
             }
         }
