@@ -250,7 +250,7 @@ test('installed app cold-starts, advances, and reopens with the computer unavail
     await navigator.serviceWorker.ready;
   });
   await expect.poll(async () => page.evaluate(async () => {
-    const cache = await caches.open('yoga-shell-v13');
+    const cache = await caches.open('yoga-shell-v20');
     return (await cache.keys()).length;
   })).toBeGreaterThan(5);
 

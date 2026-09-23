@@ -5,7 +5,7 @@ async function cacheLoadedAppShell() {
     const controller = new AbortController();
     const cancel = () => controller.abort();
     window.addEventListener('pagehide', cancel, { once: true });
-    const cache = await caches.open('yoga-shell-v13');
+    const cache = await caches.open('yoga-shell-v20');
     const resources = new Set([
         new URL('./', window.location.href).toString(),
         new URL('manifest.webmanifest', window.location.href).toString(),
@@ -30,7 +30,10 @@ async function cacheLoadedAppShell() {
 if (!new URLSearchParams(window.location.search).get('prototype')) {
     if ('serviceWorker' in navigator) {
         const base = import.meta.env.BASE_URL || '/';
-        navigator.serviceWorker.register(`${base}sw.js`, { scope: base })
+        // Version the script URL as well as the cache name. This prevents an
+        // older worker from serving a cached sw.js and hiding client fixes
+        // during local testing or after deployment.
+        navigator.serviceWorker.register(`${base}sw.js?v=20`, { scope: base })
             .then((registration) => {
                 registration.addEventListener('updatefound', () => {
                     const worker = registration.installing;
@@ -46,7 +49,7 @@ if (!new URLSearchParams(window.location.search).get('prototype')) {
     }
     await import('./services/supabaseClient.js');
     await import('./services/dataAdapter.js');
-    await import('../app.js');
+    await import('../app.js?client=20');
     const { setupOfflineMediaUI } = await import('./ui/offlineMediaUI.js');
     const { setupSyncStatusUI } = await import('./ui/syncStatusUI.js');
     const { setupProfileUI } = await import('./ui/profileUI.js');

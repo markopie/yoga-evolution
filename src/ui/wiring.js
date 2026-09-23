@@ -377,6 +377,11 @@ function setupPlaybackControls() {
         else window.stopTimer();
     });
     safeListen("resetBtn", "click", () => {
+        console.info('[completion-flow] reset-button-start', {
+            currentIndex: window.currentIndex ?? null,
+            sequence: window.currentSequence?.title || null,
+            suppressIncompleteHistory: !!window.suppressIncompleteHistory,
+        });
         // 1. Stop the clock to freeze the Timer Pill
         if (typeof window.stopTimer === 'function') {
             window.stopTimer();
@@ -384,6 +389,7 @@ function setupPlaybackControls() {
 
         // If on step 0, clicking reset should ideally just show the briefing again
         if (window.currentIndex === 0 && checkAndRestoreBriefing()) {
+            console.info('[completion-flow] reset-button-stopped-at-briefing');
             return;
         }
 
@@ -470,17 +476,26 @@ function setupPlaybackControls() {
         }
 
         // 🛑 6. THE ENGINE FLUSH (Fixes the "Lock Up" bug)
-        window.activePlaybackList = null;
+        if (typeof window.setActivePlaybackList === 'function') window.setActivePlaybackList(null);
+        else window.activePlaybackList = null;
         window._lastBoundaryIdx = -1;
-        window.currentSequence = null;
-        window.currentIndex = 0;
-        window.needsSecondSide = false;
+        if (typeof window.setCurrentSequence === 'function') window.setCurrentSequence(null);
+        else window.currentSequence = null;
+        if (typeof window.setCurrentIndex === 'function') window.setCurrentIndex(0);
+        else window.currentIndex = 0;
+        if (typeof window.setNeedsSecondSide === 'function') window.setNeedsSecondSide(false);
+        else window.needsSecondSide = false;
 
         // Reset the start button text
         const startBtn = document.getElementById("startStopBtn");
         if (startBtn) startBtn.textContent = "Start";
 
-        console.log("🛠️ Architect: Session Reset Complete. Engine, UI, and Save State Flushed.");
+        console.info('[completion-flow] reset-button-finished', {
+            sequence: window.currentSequence?.title || null,
+            activePoses: window.activePlaybackList?.length ?? 0,
+            currentIndex: window.currentIndex ?? null,
+            sequenceSelect: document.getElementById('sequenceSelect')?.value || '',
+        });
     });
 
     // Mobile Duration Dial Reset
@@ -607,7 +622,7 @@ if (mainResetBtn) {
 
         // 1. Log incomplete session (if > 5 secs)
         const focusDuration = window.playbackEngine?.activePracticeSeconds || 0;
-        if (focusDuration > 5 && typeof window.appendServerHistory === "function") {
+        if (!window.suppressIncompleteHistory && focusDuration > 5 && typeof window.appendServerHistory === "function") {
             const title = window.currentSequence?.title || "Unknown Sequence";
             const category = window.currentSequence?.category || null;
             window.appendServerHistory(title, new Date(), category, focusDuration, 'incomplete').catch(console.error);

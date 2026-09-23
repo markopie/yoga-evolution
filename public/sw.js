@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'yoga-shell-v13';
+const SHELL_CACHE = 'yoga-shell-v20';
 const MEDIA_CACHE = 'yoga-offline-media-v1';
 const OFFLINE_MEDIA_PREFIX = '/__offline_media__/';
 const EXCLUDED_OFFLINE_BUCKETS = ['yoga-cards'];

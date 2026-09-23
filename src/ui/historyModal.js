@@ -27,10 +27,18 @@ function getDefaultHistoryTab() {
 
 function closeHistoryModal() {
     if (!histBackdrop) return;
+    console.info('[completion-flow] progress-close', {
+        clearPracticeOnClose: histBackdrop.dataset.clearPracticeOnClose === 'true',
+        sequence: window.currentSequence?.title || null,
+    });
     histBackdrop.style.display = 'none';
     document.body.classList.remove('modal-open');
     if (histBackdrop.dataset.clearPracticeOnClose === 'true') {
-        window.exitCurriculumPractice?.();
+        if (typeof window.clearActivePracticeAfterCompletion === 'function') {
+            window.clearActivePracticeAfterCompletion();
+        } else {
+            window.exitCurriculumPractice?.();
+        }
         delete histBackdrop.dataset.clearPracticeOnClose;
     }
     restoreRoadmapState();

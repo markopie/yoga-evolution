@@ -6,6 +6,18 @@ import { hydratePropsFromDb } from "./src/config/propRegistry.js";
 import { themeManager } from "./src/ui/themeToggle.js";
 import { $, safeListen } from "./src/utils/dom.js";
 import { ratingOverlayOptionsForCompletion } from "./src/utils/completionFlow.js";
+
+console.info('[completion-flow] diagnostics-loaded', { clientVersion: 'v20' });
+
+function completionDebug(event, details = {}) {
+    console.info('[completion-flow]', event, {
+        ...details,
+        sequence: window.currentSequence?.title || null,
+        curriculumNode: window.currentCurriculumPractice?.curriculum_node_id ?? null,
+        currentIndex: window.currentIndex ?? null,
+        activePoses: window.activePlaybackList?.length ?? 0,
+    });
+}
 import { parseHoldTimes } from "./src/utils/parsing.js";
 import { displayName, formatHMS } from "./src/utils/format.js";
 import { buildResumeState, resolveResumeCourse } from "./src/utils/resumeState.js";
@@ -310,6 +322,7 @@ Object.assign(window, {
 // #endregion
 
 async function saveCurrentSequenceCompletion({ durationSeconds = 0, notes = null } = {}) {
+    completionDebug('save-start', { durationSeconds });
     if (!window.currentSequence || typeof window.appendServerHistory !== 'function') {
         throw new Error('There is no active practice to complete.');
     }
@@ -328,11 +341,38 @@ async function saveCurrentSequenceCompletion({ durationSeconds = 0, notes = null
             : null,
     });
 
+    completionDebug('save-recorded', { sessionId });
     showCompletionRatingOverlay(sessionId, ratingOverlayOptionsForCompletion(curriculumPractice));
     return sessionId;
 }
 
 let manualCompletionResolver = null;
+
+function clearActivePracticeAfterCompletion() {
+    const resetBtn = document.getElementById('resetBtn');
+    completionDebug('clear-requested', { resetButtonPresent: !!resetBtn });
+    if (resetBtn) {
+        // Reuse the exact Reset-button UI path. Suppress only its incomplete
+        // session audit because this completion has already been saved.
+        window.suppressIncompleteHistory = true;
+        try {
+            resetBtn.click();
+        } finally {
+            window.suppressIncompleteHistory = false;
+        }
+        completionDebug('clear-after-reset-button');
+        return;
+    }
+
+    window.setCurrentSequence?.(null);
+    window.setActivePlaybackList?.([]);
+    window.setCurrentIndex?.(0);
+    window.currentCurriculumPractice = null;
+    window.setPracticeWorkspaceVisible?.(false);
+    completionDebug('clear-after-fallback');
+}
+
+window.clearActivePracticeAfterCompletion = clearActivePracticeAfterCompletion;
 
 function requestManualCompletionConfirmation({ practicedSeconds = 0, allocatedSeconds = 0 } = {}) {
     const overlay = document.getElementById('manualCompletionOverlay');
@@ -487,8 +527,10 @@ const setupRatingButtons = async () => {
 
                 try {
                     if (sessionId !== "fallback-id" && typeof window.updateCompletionRating === "function") {
+                        completionDebug('rating-save-start', { sessionId, rating });
                         const saved = await window.updateCompletionRating(sessionId, rating);
                         if (!saved) throw new Error('The rating was not saved.');
+                        completionDebug('rating-save-recorded', { sessionId, rating });
                     }
                 } catch (err) {
                     console.error("Rating Phase 2 Failed:", err);
@@ -506,6 +548,13 @@ const setupRatingButtons = async () => {
                     const afterRatingAction = overlay.dataset.afterRatingAction || "";
                     const shouldResetAfterRating = overlay.dataset.resetAfterRating !== "false";
                     const practiceBeforeAdvance = window.currentCurriculumPractice;
+                    completionDebug('rating-transition', {
+                        sessionId,
+                        rating,
+                        afterRatingAction,
+                        shouldResetAfterRating,
+                        curriculumCompletion: practiceBeforeAdvance?.curriculum_node_id != null,
+                    });
                     overlay.style.display = "none";
                     delete overlay.dataset.sessionId;
                     delete overlay.dataset.afterRatingAction;
@@ -551,9 +600,11 @@ const setupRatingButtons = async () => {
                         const isCurriculumCompletion = practiceBeforeAdvance?.curriculum_node_id != null;
                         await window.openHistoryModal(
                             isCurriculumCompletion ? 'current' : 'manual',
-                            { clearPracticeOnClose: isCurriculumCompletion },
+                            { clearPracticeOnClose: true },
                         );
                         if (isCurriculumCompletion) window.exitCurriculumPractice?.();
+                        else clearActivePracticeAfterCompletion();
+                        completionDebug('rating-transition-finished');
                     }
 
                     // Reset visual state for next time
@@ -607,6 +658,7 @@ function showCompletionRatingOverlay(sessionId, options = {}) {
     const afterRatingAction = isCurriculumCompletion
         ? 'openHistory'
         : options.afterRatingAction;
+    completionDebug('rating-overlay-shown', { sessionId, afterRatingAction, resetAfterRating: options.resetAfterRating });
     if (afterRatingAction) overlay.dataset.afterRatingAction = afterRatingAction;
     overlay.dataset.resetAfterRating = options.resetAfterRating === false ? "false" : "true";
     const undoButton = document.getElementById('undoCompletionBtn');
