@@ -77,11 +77,6 @@ export function renderTeachingCard({ asana, poseName = '', poseId = '', variatio
             openImageReferences(asana || { english: poseName }, variation);
         });
         card.appendChild(button);
-    } else if (!focusMode && url) {
-        const offline = document.createElement('div');
-        offline.className = 'teaching-card__offline';
-        offline.textContent = 'Image references require an internet connection.';
-        card.appendChild(offline);
     }
     return card;
 }

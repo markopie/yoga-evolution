@@ -45,6 +45,11 @@ export const supabase = USE_BROWSER_TEST_MOCKS ? createBrowserTestSupabaseClient
 }) : null;
 
 if (supabase) {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        supabase.auth.stopAutoRefresh();
+    }
+    window.addEventListener('offline', () => supabase.auth.stopAutoRefresh());
+    window.addEventListener('online', () => supabase.auth.startAutoRefresh());
     supabase.auth.getSession().then(({ error }) => {
         if (!error) return;
         if (!/refresh token/i.test(error.message || '')) return;

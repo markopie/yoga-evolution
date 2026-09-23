@@ -2,6 +2,7 @@
 
 import { AUDIO_BASE, BRIDGE_SKIP_PROBABILITY } from "../config/appConfig.js";
 import { normalizePlate } from "../services/dataAdapter.js";
+import { hasOfflineAsset, offlineMediaUrl } from "../services/offlineMedia.js";
 import {
     normalizePlaybackSide,
     requiresBilateralSides,
@@ -27,6 +28,19 @@ function joinPath(base, file) {
 export function resolveAudioSource(file, base = AUDIO_BASE) {
     const value = String(file || '').trim();
     if (!value) return null;
+    let bucket = 'audio-assets';
+    let objectPath = value;
+    try {
+        const url = new URL(value, window.location.origin);
+        const match = url.pathname.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/]+)\/(.+)$/i);
+        if (match) {
+            bucket = decodeURIComponent(match[1]);
+            objectPath = match[2].split('/').map(decodeURIComponent).join('/');
+        }
+    } catch { /* Fall through to the normal URL resolver. */ }
+    if (bucket && objectPath && hasOfflineAsset(bucket, objectPath)) {
+        return offlineMediaUrl(bucket, objectPath);
+    }
     if (/^(?:https?:|blob:|data:)/i.test(value)) return value;
     if (value.startsWith('/storage/v1/')) {
         return new URL(value, window.location.origin).toString();
@@ -297,16 +311,33 @@ export function playPoseMainAudio(asana, poseLabel = null, onComplete = null, va
             if (side) setTimeout(() => playSideCue(side), 100);
         }
 
-        const playSrcInQueue = (src, nextStep) => {
+        const playSrcInQueue = (src, nextStep, fallbackText = '') => {
             if (!src) { if (nextStep) nextStep(); return; }
             const a = new Audio(src);
-            a.onended = nextStep;
-            a.onerror = nextStep;
+            let settled = false;
+            let fallbackStarted = false;
+            const finish = () => {
+                if (settled) return;
+                settled = true;
+                nextStep?.();
+            };
+            const fallback = () => {
+                if (settled || fallbackStarted) return;
+                fallbackStarted = true;
+                if (fallbackText) {
+                    console.warn(`[AudioEngine] Using speech fallback for unavailable audio: ${src}`);
+                    speakText(fallbackText).then(finish);
+                } else {
+                    finish();
+                }
+            };
+            a.onended = finish;
+            a.onerror = fallback;
             a.play()
                 .then(() => { setCurrentAudio(a); })
                 .catch(e => {
                     console.warn(`[AudioEngine] Audio play failed: ${src}`, e);
-                    nextStep();
+                    fallback();
                 });
         };
 
@@ -352,7 +383,7 @@ export function playPoseMainAudio(asana, poseLabel = null, onComplete = null, va
         };
 
         const step1_Main = () => {
-            let src = asana.audio;
+            let src = asana.audio ? resolveAudioSource(asana.audio) : null;
             let fallbackText = null;
             if (!src) {
                 // ARCHITECT CONTRACT: Strict schema mapping
@@ -373,7 +404,7 @@ export function playPoseMainAudio(asana, poseLabel = null, onComplete = null, va
                 }
             }
             if (src) {
-                playSrcInQueue(src, step2_Bridge);
+                playSrcInQueue(src, step2_Bridge, asana.english_name || asana.name || '');
             } else if (fallbackText) {
                 speakText(fallbackText).then(step2_Bridge);
             } else {

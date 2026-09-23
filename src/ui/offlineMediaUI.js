@@ -64,12 +64,12 @@ export async function setupOfflineMediaUI() {
                 ? 'update'
                 : installed ? 'ready' : state.online ? 'online' : 'offline';
         const required = state.requiredBytes || state.pack?.totalBytes || 0;
-        const packSize = required ? `about ${formatBytes(required)} of media` : 'media size is not available';
+        const packSize = required ? ` · about ${formatBytes(required)} of media` : '';
         detail.textContent = state.manifestError
             ? 'We could not check the available media. Check your internet connection and try again.'
             : state.manifestEmpty
                 ? 'The media catalog is empty in this environment. Populate the media manifest before downloading.'
-            : `${navigator.onLine ? 'You are online' : 'You are offline'} · ${packSize}.`;
+            : `${navigator.onLine ? 'You are online' : 'You are offline'}${packSize}.`;
         if (state.updateAvailable) detail.textContent += ' New media is ready to download.';
         if (lastDownloadError) detail.textContent = lastDownloadError;
         progress.value = state.pack?.completedCount || 0;

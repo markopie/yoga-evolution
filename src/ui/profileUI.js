@@ -233,8 +233,6 @@ export async function setupProfileUI() {
         byId('userEmailDisplay').textContent = profile.name;
         byId('profileNameInput').value = profile.name;
         showBackupNotice();
-        byId('connectionModeDisplay').hidden = online;
-        byId('connectionModeDisplay').textContent = 'Offline';
         byId('loginScreen').style.display = 'none';
         byId('mainAppContainer').style.display = '';
         if (!window.appInitialized) await window.init?.();
@@ -249,8 +247,6 @@ export async function setupProfileUI() {
     window.addEventListener('offline', () => {
         window.hasLiveProfileSession = false;
         window.isTrustedOfflineMode = Boolean(window.currentUserId);
-        byId('connectionModeDisplay').hidden = !window.currentUserId;
-        byId('connectionModeDisplay').textContent = 'Offline';
     });
     byId('loginScreen').dataset.ready = 'true';
 }
