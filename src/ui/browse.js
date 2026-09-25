@@ -236,7 +236,26 @@ async function showAsanaDetail(asana, highlightStageKey = null) {
       <hr>
     `;
 
-    const teachingCard = window.renderTeachingCard({ asana, poseId: asana.id || asana.asanaNo, timing: rangeDisplay.replace(/^ • /, '') });
+    const variationOptions = Object.entries(asana.variations || {}).map(([key, value]) => ({
+        key,
+        title: value?.title || value?.Title || `Stage ${key}`,
+    }));
+    const selectedVariation = highlightStageKey || '';
+    const teachingCard = window.renderTeachingCard({
+        asana,
+        poseId: asana.id || asana.asanaNo,
+        variation: selectedVariation,
+        variationOptions,
+        onVariationChange: (nextKey) => {
+            const selected = nextKey || null;
+            d.querySelectorAll('.variation-block, .user-variation-block').forEach((block) => {
+                const isSelected = block.dataset.stageKey === selected;
+                block.classList.toggle('variation-block--selected', isSelected);
+                block.classList.toggle('user-variation-block--selected', isSelected);
+            });
+        },
+        timing: rangeDisplay.replace(/^ • /, ''),
+    });
     d.appendChild(teachingCard);
 
     // 🛑 5. JOBSIAN ACCORDION STACK
@@ -301,6 +320,7 @@ ${typeof formatTechniqueText === 'function' ? formatTechniqueText(baseDesc).trim
             }
 
             const wrapper = document.createElement('div');
+            wrapper.dataset.stageKey = key;
             wrapper.className = isCustom ? 'user-variation-block' : 'variation-block';
             wrapper.style.cssText = isCustom 
                 ? 'background:#f0f7ff; padding:16px; margin-bottom:12px; border-radius:10px; border: 1px solid #0071e3;'

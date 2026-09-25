@@ -598,12 +598,23 @@ const setupRatingButtons = async () => {
                         if (resetBtn) resetBtn.click();
                     } else if (afterRatingAction === "openHistory" && typeof window.openHistoryModal === "function") {
                         const isCurriculumCompletion = practiceBeforeAdvance?.curriculum_node_id != null;
-                        await window.openHistoryModal(
-                            isCurriculumCompletion ? 'current' : 'manual',
-                            { clearPracticeOnClose: true },
-                        );
+                        const completedTitle = window.currentSequence?.title
+                            || practiceBeforeAdvance?.resolved_course_title
+                            || practiceBeforeAdvance?.source_reference
+                            || 'Completed practice';
                         if (isCurriculumCompletion) window.exitCurriculumPractice?.();
-                        else clearActivePracticeAfterCompletion();
+                        await window.openHistoryModal(
+                            isCurriculumCompletion ? 'curriculum' : 'current',
+                            {
+                                clearPracticeOnClose: true,
+                                completedPractice: {
+                                    title: completedTitle,
+                                    sourceType: isCurriculumCompletion ? 'curriculum' : 'manual',
+                                    rating,
+                                },
+                            },
+                        );
+                        if (!isCurriculumCompletion) clearActivePracticeAfterCompletion();
                         completionDebug('rating-transition-finished');
                     }
 

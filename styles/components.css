@@ -224,6 +224,98 @@ button.tiny {
     font-weight: 600;
 }
 
+.history-section-heading {
+    max-width: 1100px;
+    margin: 18px auto 8px;
+    padding-top: 14px;
+    border-top: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.teaching-card__variation-picker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    color: var(--color-text-secondary, #666);
+    font-size: 0.82rem;
+}
+
+.teaching-card__variation-picker select {
+    min-height: 32px;
+    padding: 4px 8px;
+}
+
+.teaching-card__reference::before {
+  content: '▧';
+  margin-right: 6px;
+  color: var(--color-accent-primary, #007aff);
+  font-size: 1rem;
+  vertical-align: -1px;
+}
+
+.teaching-card__variation-menu {
+  position: relative;
+  display: inline-block;
+}
+
+.teaching-card__variation-trigger {
+  min-height: 32px;
+  padding: 5px 28px 5px 9px;
+  border: 1px solid var(--color-border-secondary, #d0d0d0);
+  border-radius: 8px;
+  background: var(--color-bg-secondary, #fff);
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.teaching-card__variation-trigger::after {
+  content: '⌄';
+  position: absolute;
+  right: 9px;
+  color: var(--color-text-secondary, #666);
+}
+
+.teaching-card__variation-options {
+  position: absolute;
+  z-index: 5;
+  top: calc(100% + 5px);
+  left: 0;
+  min-width: 190px;
+  padding: 5px;
+  border: 1px solid var(--color-border-secondary, #d0d0d0);
+  border-radius: 10px;
+  background: var(--color-bg-secondary, #fff);
+  box-shadow: 0 8px 24px rgba(0,0,0,.14);
+}
+
+.teaching-card__variation-options button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 7px;
+  text-align: left;
+  background: transparent;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.teaching-card__variation-options button:hover,
+.teaching-card__variation-options button[aria-checked="true"] {
+  background: var(--color-bg-hover, #f3f3f3);
+}
+
+.variation-block--selected,
+.user-variation-block--selected {
+  border-color: var(--color-accent-primary, #007aff) !important;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent-primary, #007aff) 18%, transparent);
+}
+
 /* Progress is a full-screen workspace. Keep practice history and the
    curriculum browser in one stable surface so navigation does not jump
    between unrelated dialogs. */
@@ -1269,4 +1361,49 @@ details[open] > summary .cr-chevron { transform: rotate(90deg); }
   .cr-summary-stats .cr-stat:last-child { grid-column: auto; }
   .cr-map-topbar { gap: .45rem; }
   .cr-legend-item { font-size: .66rem; }
+}
+.history-completion-notice {
+  padding: 10px 12px;
+  border: 1px solid #b7dfc0;
+  border-radius: 8px;
+  background: #eef9f0;
+  color: #216b2d;
+  font-weight: 650;
+}
+
+.history-entry--current {
+  border-left: 4px solid #0071e3;
+  background: #eef6ff;
+}
+
+.history-active-practice {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--color-accent-primary, #007aff);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-accent-primary, #007aff) 7%, var(--color-bg-surface, #fff));
+}
+
+.history-active-practice span {
+  color: var(--color-text-secondary, #666);
+  font-size: 0.82rem;
+}
+
+.cr-node--active-practice .cr-node-practise,
+.cr-node--focused {
+  box-shadow: 0 0 0 2px var(--color-accent-primary, #007aff);
+}
+
+.history-current-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: #0071e3;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
 }

@@ -15,7 +15,7 @@ export function openImageReferences(asana, variationName = '', opener = window.o
     return url;
 }
 
-export function renderTeachingCard({ asana, poseName = '', poseId = '', variation = '', side = '', timing = '', props = [], note = '', onPlayAudio = null, compact = false, focusMode = false } = {}) {
+export function renderTeachingCard({ asana, poseName = '', poseId = '', variation = '', variationOptions = [], onVariationChange = null, side = '', timing = '', props = [], note = '', onPlayAudio = null, compact = false, focusMode = false } = {}) {
     const card = document.createElement('section');
     card.className = `teaching-card${compact ? ' teaching-card--compact' : ''}${focusMode ? ' teaching-card--focus' : ''}`;
     const primary = poseName || displayName(asana) || 'Pose';
@@ -63,18 +63,69 @@ export function renderTeachingCard({ asana, poseName = '', poseId = '', variatio
         context.textContent = note;
         card.appendChild(context);
     }
-    const url = googleImageReferenceUrl(asana || { english: poseName }, variation);
+
+    if (!focusMode && variationOptions.length) {
+        const variationRow = document.createElement('label');
+        variationRow.className = 'teaching-card__variation-picker';
+        variationRow.append('Image reference for ');
+        const picker = document.createElement('div');
+        picker.className = 'teaching-card__variation-menu';
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'teaching-card__variation-trigger';
+        trigger.setAttribute('aria-haspopup', 'menu');
+        trigger.setAttribute('aria-expanded', 'false');
+        const menu = document.createElement('div');
+        menu.className = 'teaching-card__variation-options';
+        menu.hidden = true;
+        let selectedKey = variation || '';
+        const updateTrigger = () => {
+            const selected = variationOptions.find((option) => option.key === selectedKey);
+            trigger.textContent = selected?.title || 'Base pose';
+        };
+        const choose = (key) => {
+            selectedKey = key;
+            referenceVariation = variationOptions.find((option) => option.key === selectedKey)?.title || selectedKey;
+            updateTrigger();
+            menu.querySelectorAll('button').forEach((button) => button.setAttribute('aria-checked', String(button.dataset.key === selectedKey)));
+            menu.hidden = true;
+            trigger.setAttribute('aria-expanded', 'false');
+            onVariationChange?.(selectedKey);
+        };
+        [{ key: '', title: 'Base pose' }, ...variationOptions].forEach(({ key, title }) => {
+            const option = document.createElement('button');
+            option.type = 'button';
+            option.dataset.key = key;
+            option.setAttribute('role', 'menuitemradio');
+            option.setAttribute('aria-checked', String(key === selectedKey));
+            option.textContent = title || key;
+            option.addEventListener('click', () => choose(key));
+            menu.appendChild(option);
+        });
+        trigger.addEventListener('click', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            menu.hidden = !menu.hidden;
+            trigger.setAttribute('aria-expanded', String(!menu.hidden));
+        });
+        updateTrigger();
+        picker.append(trigger, menu);
+        variationRow.appendChild(picker);
+        card.appendChild(variationRow);
+    }
+    let referenceVariation = variationOptions.find((option) => option.key === variation)?.title || variation;
+    const url = googleImageReferenceUrl(asana || { english: poseName }, referenceVariation);
     if (!focusMode && url && navigator.onLine) {
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'tiny teaching-card__reference';
         button.textContent = 'View image references ↗';
         button.setAttribute('aria-label', 'View image references. Opens Google Images in a new tab');
-        button.title = 'Open Google Images references for this asana';
+        button.title = referenceVariation ? `Open Google Images references for ${referenceVariation}` : 'Open Google Images references for this asana';
         button.addEventListener('click', (event) => {
             event.preventDefault();
             event.stopPropagation();
-            openImageReferences(asana || { english: poseName }, variation);
+            openImageReferences(asana || { english: poseName }, referenceVariation);
         });
         card.appendChild(button);
     }

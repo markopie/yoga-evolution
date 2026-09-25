@@ -512,24 +512,17 @@
              <strong id="historyModalTitle">✅ Progress</strong>
              <button id="historyCloseBtn" type="button" aria-label="Back to Practice">Back to Practice</button>
          </div>
+         <div id="historyCompletionNotice" class="history-completion-notice" role="status" hidden></div>
          <div class="history-tabs" role="tablist" aria-label="Progress view">
-             <button id="histTabCurrent" class="history-tab active" type="button" role="tab" aria-selected="true" aria-controls="histViewCurrent">Current Sequence</button>
-             <button id="histTabManual" class="history-tab" type="button" role="tab" aria-selected="false" aria-controls="histViewManual">Manual Practice</button>
+             <button id="histTabCurrent" class="history-tab active" type="button" role="tab" aria-selected="true" aria-controls="histViewCurrent">Practice History</button>
              <button id="histTabCurriculum" class="history-tab" type="button" role="tab" aria-selected="false">Curriculum</button>
          </div>
-         <div id="historyViewLabel" class="history-view-label" aria-live="polite">Current sequence</div>
+         <div id="historyViewLabel" class="history-view-label" aria-live="polite">Practice history</div>
       </div>
       
       <div class="modal-body" style="padding:0;">
          <div id="histViewCurrent" style="padding:15px; display:block;">
-            <h4 id="historyTitle" style="margin-top:0; margin-bottom:10px; border-bottom:1px solid #eee; padding-bottom:5px;"></h4>
-            <div id="historyList" style="max-height:300px; overflow-y:auto; font-size:0.9rem;"></div>
-            <div style="margin-top:15px; border-top:1px solid #eee; padding-top:10px; text-align:right;">
-               <button id="clearHistoryBtn" class="tiny warn">Clear This Sequence</button>
-            </div>
-         </div>
-
-         <div id="histViewManual" style="padding:15px; display:none; max-height:60vh; overflow-y:auto; background:#f9f9f9;">
+            <div class="history-section-heading">Manual practice history</div>
             <div id="globalHistoryList"></div>
          </div>
          <div id="histViewCurriculum" style="display:none;">

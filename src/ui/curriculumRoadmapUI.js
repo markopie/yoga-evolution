@@ -964,7 +964,12 @@ function renderNodeCard(node, currentNodeId) {
         milestone ? ' cr-node--milestone' : '',
     ].join('');
 
-    return `<div class="cr-node${cardMod}">
+    const activePractice = window.currentCurriculumPractice?.curriculum_node_id === node.id;
+    const actionLabel = activePractice
+        ? 'Open practice'
+        : DONE_STATUSES.includes(node.status) ? 'Practise again' : node.completion_count > 0 ? 'Continue' : 'Practise';
+
+    return `<div class="cr-node${cardMod}${activePractice ? ' cr-node--active-practice' : ''}">
     <div class="cr-node-row">
       <span class="cr-node-day">D${node.day_number}</span>
       <div class="cr-node-body">
@@ -976,7 +981,7 @@ function renderNodeCard(node, currentNodeId) {
         ${metaRow ? `<div class="cr-node-meta">${metaRow}</div>` : ''}
       </div>
       ${['completed', 'repeated', 'plateau'].includes(node.status) && node.best_rating != null ? `<div class="cr-node-rating">${renderStars(node.best_rating)}</div>` : ''}
-      ${isPlayable ? `<button type="button" class="cr-node-practise" data-curriculum-node-id="${esc(node.id)}">Practise</button>` : ''}
+      ${isPlayable ? `<button type="button" class="cr-node-practise" data-curriculum-node-id="${esc(node.id)}">${actionLabel}</button>` : ''}
     </div>
     ${partsHtml}
   </div>`;
@@ -1291,7 +1296,7 @@ function wireMapClicks(assembledNodes, currentNodeId, body) {
 
 // ─── Open / close ─────────────────────────────────────────────────────────────
 
-export async function openCurriculumRoadmap({ completionNotice = null, embedded = false } = {}) {
+export async function openCurriculumRoadmap({ completionNotice = null, embedded = false, focusNodeId = null } = {}) {
     const backdrop = document.getElementById('historyBackdrop');
     const body     = document.getElementById('curriculumMapBody');
     if (!backdrop || !body) return;
@@ -1329,6 +1334,18 @@ export async function openCurriculumRoadmap({ completionNotice = null, embedded 
         wireListControls();
         wirePracticeButtons();
         wireMapClicks(assembledNodes, effectiveCurrentNodeId, body);
+
+        const targetNodeId = focusNodeId ?? currentNode?.id ?? null;
+        if (targetNodeId != null) {
+            const targetButton = [...body.querySelectorAll('[data-curriculum-node-id]')]
+                .find((button) => String(button.getAttribute('data-curriculum-node-id')) === String(targetNodeId));
+            const targetCard = targetButton?.closest('.cr-node');
+            if (targetCard) {
+                targetCard.classList.add('cr-node--focused');
+                targetCard.closest('details')?.setAttribute('open', '');
+                targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
     } catch (err) {
         console.error('[curriculumRoadmapUI] Failed to load roadmap:', err);
         body.innerHTML = `<div class="cr-loading cr-loading--error">Failed to load curriculum map. Please try again.</div>`;

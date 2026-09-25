@@ -12,6 +12,15 @@ import { migrateProfileSequences } from '../services/profileSequenceMigration.js
 
 const byId = (id) => document.getElementById(id);
 const backupNoticeKey = (userId) => `yoga-profile-backup-notice-v1:${userId}`;
+const LAST_PROFILE_KEY = `${PROFILES_KEY}-last-used`;
+
+function readLastProfileId() {
+    try { return localStorage.getItem(LAST_PROFILE_KEY); } catch { return null; }
+}
+
+function rememberLastProfile(id) {
+    try { localStorage.setItem(LAST_PROFILE_KEY, id); } catch { /* Non-critical convenience only. */ }
+}
 
 export async function setupProfileUI() {
     const showMessage = (message = '') => {
@@ -68,6 +77,7 @@ export async function setupProfileUI() {
                     if (!snapshot?.nodes?.length) throw new Error('Connect once to download this profile for offline use.');
                 }
                 sessionStorage.setItem(SELECTED_PROFILE_KEY, profile.id);
+                rememberLastProfile(profile.id);
                 location.reload();
             }));
             const remove = document.createElement('button');
@@ -203,9 +213,14 @@ export async function setupProfileUI() {
         // Adopt existing signed-in users without creating a replacement identity.
         if (session?.refresh_token) rememberProfile(session);
         render();
-        const selectedId = sessionStorage.getItem(SELECTED_PROFILE_KEY);
+        // The active Supabase session is still the source of truth. The
+        // local last-used id only removes the need to click the same profile
+        // after a normal reload/browser restart; it is never used to switch a
+        // different authenticated tab to another profile.
+        const selectedId = sessionStorage.getItem(SELECTED_PROFILE_KEY) || readLastProfileId();
         const profile = readProfiles().find((item) => item.id === selectedId);
         if (!profile) return;
+        showMessage('Opening your last-used profile…');
         let online = navigator.onLine;
         if (online) {
             if (session?.user?.id !== profile.id) {
@@ -219,6 +234,8 @@ export async function setupProfileUI() {
             if (!snapshot?.nodes?.length) throw new Error('Connect once to download this profile for offline use.');
         }
         window.currentUserId = profile.id;
+        sessionStorage.setItem(SELECTED_PROFILE_KEY, profile.id);
+        rememberLastProfile(profile.id);
         window.currentUserEmail = profile.email;
         window.isGuestMode = false;
         window.isTrustedOfflineMode = !online;

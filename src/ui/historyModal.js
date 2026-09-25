@@ -3,10 +3,7 @@ import { openCurriculumRoadmap, restoreRoadmapState } from './curriculumRoadmapU
 
 const getCurrentSequence = () => window.currentSequence;
 const getServerHistoryCache = () => window.serverHistoryCache;
-const updateTotalAndLastUI = () => window.updateTotalAndLastUI?.();
 const fetchServerHistory = () => window.fetchServerHistory ? window.fetchServerHistory() : Promise.resolve([]);
-const deleteAllCompletionsForTitle = (title) => window.deleteAllCompletionsForTitle ? window.deleteAllCompletionsForTitle(title) : Promise.resolve();
-const deleteCompletionById = (id) => window.deleteCompletionById ? window.deleteCompletionById(id) : Promise.resolve();
 const calculateStreak = (arr) => window.calculateStreak ? window.calculateStreak(arr) : 0;
 
 const histBackdrop = $('historyBackdrop');
@@ -22,7 +19,7 @@ const viewLabel = $('historyViewLabel');
 let historyOpener = null;
 
 function getDefaultHistoryTab() {
-    return getCurrentSequence()?.title ? 'current' : 'manual';
+    return window.currentCurriculumPractice?.curriculum_node_id != null ? 'curriculum' : 'current';
 }
 
 function closeHistoryModal() {
@@ -47,18 +44,18 @@ function closeHistoryModal() {
 
 function switchHistoryTab(mode) {
     const isCurriculum = mode === 'curriculum';
-    const isCurrent = mode === 'current';
+    const isCurrent = mode === 'current' || mode === 'manual';
     tabCurrent?.classList.toggle('active', isCurrent);
     tabManual?.classList.toggle('active', mode === 'manual');
     tabCurriculum?.classList.toggle('active', isCurriculum);
     tabCurrent?.setAttribute('aria-selected', String(isCurrent));
     tabManual?.setAttribute('aria-selected', String(mode === 'manual'));
     tabCurriculum?.setAttribute('aria-selected', String(isCurriculum));
-    viewLabel && (viewLabel.textContent = isCurrent ? 'Current sequence' : mode === 'manual' ? 'Manual practice' : 'Curriculum');
+    viewLabel && (viewLabel.textContent = isCurrent ? 'Practice history' : 'Curriculum');
     if (viewCurrent) viewCurrent.style.display = isCurrent ? 'block' : 'none';
-    if (viewManual) viewManual.style.display = mode === 'manual' ? 'block' : 'none';
+    if (viewManual) viewManual.style.display = 'none';
     if (viewCurriculum) viewCurriculum.style.display = isCurriculum ? 'block' : 'none';
-    if (mode === 'manual') renderGlobalHistory('manual');
+    if (isCurrent) renderGlobalHistory('manual');
     if (isCurriculum) void openCurriculumRoadmap({ embedded: true });
 }
 
@@ -91,19 +88,6 @@ document.addEventListener('keydown', (event) => {
     }
 });
 
-const clearHistoryBtn = $('clearHistoryBtn');
-clearHistoryBtn?.addEventListener('click', async () => {
-    const sequence = getCurrentSequence();
-    if (!sequence || !confirm(`Clear all completion history for “${sequence.title}”?`)) return;
-    clearHistoryBtn.disabled = true;
-    clearHistoryBtn.textContent = 'Clearing…';
-    await deleteAllCompletionsForTitle(sequence.title);
-    clearHistoryBtn.disabled = false;
-    clearHistoryBtn.textContent = 'Clear This Sequence';
-    await openHistoryModal('current');
-    updateTotalAndLastUI();
-});
-
 function formatDate(entry) {
     const date = new Date(entry.ts);
     return Number.isNaN(date.getTime()) ? entry.local || 'Unknown date' : `${date.toLocaleDateString('en-AU')} ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
@@ -125,74 +109,34 @@ function formatDetails(entry) {
     return details.join(' · ');
 }
 
-async function openHistoryModal(defaultTab = null, { clearPracticeOnClose = false } = {}) {
+function activePracticePercent() {
+    const poses = typeof window.getActivePlaybackList === 'function'
+        ? window.getActivePlaybackList()
+        : (window.activePlaybackList || window.currentSequence?.poses || []);
+    const tracker = typeof window.getCompletionTracker === 'function' ? window.getCompletionTracker() : {};
+    const total = poses.reduce((sum, pose) => sum + Number(pose?.[1] || 0), 0);
+    const completed = poses.reduce((sum, pose, index) => sum + Math.min(total ? Number(tracker?.[index] || 0) : 0, Number(pose?.[1] || 0)), 0);
+    return total > 0 ? Math.round((completed / total) * 100) : null;
+}
+
+async function openHistoryModal(defaultTab = null, { clearPracticeOnClose = false, completedPractice = null } = {}) {
     if (!histBackdrop) return;
     historyOpener = document.activeElement;
-    const sequence = getCurrentSequence();
     const selectedTab = ['current', 'manual', 'curriculum'].includes(defaultTab)
         ? defaultTab
         : getDefaultHistoryTab();
-    if (selectedTab === 'manual' && (getServerHistoryCache() === null || getServerHistoryCache() === undefined)) await fetchServerHistory();
-    const titleEl = $('historyTitle');
-    const listEl = $('historyList');
-    if (titleEl) titleEl.textContent = sequence?.title || 'Current Sequence';
-    if (clearHistoryBtn) clearHistoryBtn.hidden = !sequence;
-
-    if (listEl) {
-        if (!sequence) {
-            listEl.innerHTML = '<div class="msg" role="status">Select a sequence to view its history.</div>';
-        } else {
-            listEl.innerHTML = '<div class="muted" style="padding:8px;">Loading…</div>';
-            const cached = getServerHistoryCache();
-            const history = cached === null || cached === undefined ? await fetchServerHistory() : cached;
-            const entries = history.filter((entry) => entry.title === sequence.title).sort((a, b) => b.ts - a.ts);
-            listEl.innerHTML = '';
-            if (!entries.length) {
-                listEl.innerHTML = '<div class="muted" style="padding:8px;">No completion history yet.</div>';
-            } else {
-                const streak = calculateStreak(entries.map((entry) => entry.iso).filter(Boolean));
-                if (streak > 0) {
-                    const streakEl = document.createElement('div');
-                    streakEl.className = 'history-streak';
-                    streakEl.textContent = streak === 1 ? 'Practiced today — keep the momentum!' : `${streak}-day practice streak — well done!`;
-                    listEl.appendChild(streakEl);
-                }
-                entries.forEach((entry) => {
-                    const row = document.createElement('div');
-                    row.className = 'history-entry';
-                    const info = document.createElement('div');
-                    const badge = document.createElement('span');
-                    badge.className = 'history-source-badge';
-                    badge.textContent = entry.source_type === 'curriculum' ? 'Curriculum' : 'Manual';
-                    const date = document.createElement('div');
-                    date.textContent = formatDate(entry);
-                    info.append(badge, date);
-                    const details = formatDetails(entry);
-                    if (details) {
-                        const detailEl = document.createElement('div');
-                        detailEl.className = 'history-entry-details';
-                        detailEl.textContent = details;
-                        info.appendChild(detailEl);
-                    }
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.type = 'button';
-                    deleteBtn.className = 'tiny';
-                    deleteBtn.textContent = '✕';
-                    deleteBtn.title = 'Remove this entry';
-                    deleteBtn.setAttribute('aria-label', `Remove completion from ${formatDate(entry)}`);
-                    deleteBtn.addEventListener('click', async () => {
-                        if (!confirm('Remove this completion from history?')) return;
-                        deleteBtn.disabled = true;
-                        await deleteCompletionById(entry.id);
-                        await openHistoryModal('current');
-                        updateTotalAndLastUI();
-                    });
-                    row.append(info, deleteBtn);
-                    listEl.appendChild(row);
-                });
-            }
-        }
+    if (selectedTab === 'current' && (getServerHistoryCache() === null || getServerHistoryCache() === undefined)) await fetchServerHistory();
+    const completionNotice = $('historyCompletionNotice');
+    if (completionNotice) {
+        const completedTitle = completedPractice?.title || '';
+        const sourceLabel = completedPractice?.sourceType === 'curriculum' ? 'Curriculum sequence' : 'Manual practice';
+        completionNotice.hidden = !completedTitle;
+        const ratingText = completedPractice?.rating ? ` · Rating: ${completedPractice.rating}/5` : '';
+        completionNotice.textContent = completedTitle
+            ? `Completed ${sourceLabel}: ${completedTitle}${ratingText}`
+            : '';
     }
+
     histBackdrop.style.display = 'flex';
     document.body.classList.add('modal-open');
     histBackdrop.dataset.clearPracticeOnClose = clearPracticeOnClose ? 'true' : 'false';
@@ -200,7 +144,7 @@ async function openHistoryModal(defaultTab = null, { clearPracticeOnClose = fals
     historyCloseBtn?.focus();
 }
 
-function renderGlobalHistory(scope = 'manual') {
+function renderGlobalHistory(scope = 'manual', highlightTitle = getCurrentSequence()?.title || '') {
     const container = $('globalHistoryList');
     if (!container) return;
     container.innerHTML = '';
@@ -208,8 +152,20 @@ function renderGlobalHistory(scope = 'manual') {
     const entries = scope === 'manual'
         ? allEntries.filter((entry) => entry.source_type !== 'curriculum')
         : allEntries;
+    const activePercent = highlightTitle ? activePracticePercent() : null;
+    const hasActiveHistory = entries.some((entry) => entry.title === highlightTitle);
+    if (highlightTitle && !hasActiveHistory) {
+        const active = document.createElement('div');
+        active.className = 'history-active-practice';
+        active.innerHTML = `<strong>${highlightTitle}</strong><span>${activePercent == null ? 'Ready to practise' : `${activePercent}% complete`}</span>`;
+        container.appendChild(active);
+    }
     if (!entries.length) {
-        container.innerHTML = '<div class="msg" role="status">No completion history yet. Complete a practice to see it here.</div>';
+        const empty = document.createElement('div');
+        empty.className = 'msg';
+        empty.setAttribute('role', 'status');
+        empty.textContent = 'No completion history yet. Complete a practice to see it here.';
+        container.appendChild(empty);
         return;
     }
     const byTitle = {};
@@ -239,10 +195,12 @@ function renderGlobalHistory(scope = 'manual') {
         const content = document.createElement('div');
         items.sort((a, b) => b.latest.ts - a.latest.ts).forEach((item) => {
             const row = document.createElement('div');
-            row.className = 'history-entry';
+            const isCurrent = Boolean(highlightTitle && item.title === highlightTitle);
+            row.className = `history-entry${isCurrent ? ' history-entry--current' : ''}`;
             const label = item.sourceType === 'curriculum' ? 'Curriculum' : 'Manual';
             const detailText = formatDetails(item.latest);
-            row.innerHTML = `<div><strong><span class="history-source-badge">${label}</span>${item.title}</strong><div class="history-entry-details">Last: ${formatDate(item.latest)}${detailText ? ` · ${detailText}` : ''}</div></div><strong>${item.count}×</strong>`;
+            const progressText = isCurrent && activePercent != null ? ` · ${activePercent}% complete` : '';
+            row.innerHTML = `<div><strong>${isCurrent ? '<span class="history-current-badge">Current in player</span>' : ''}<span class="history-source-badge">${label}</span>${item.title}</strong><div class="history-entry-details">Last: ${formatDate(item.latest)}${detailText ? ` · ${detailText}` : ''}${progressText}</div></div><strong>${item.count}×</strong>`;
             content.appendChild(row);
         });
         section.append(summary, content);
