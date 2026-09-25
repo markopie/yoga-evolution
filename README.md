@@ -29,3 +29,5 @@ See [SOURCES.md](SOURCES.md). The application may connect to a separately manage
 ## License
 
 The source code in this repository is licensed under the MIT License. Third-party names, trademarks, external content, and separately managed curriculum data are not granted by that license.
+
+See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the separate licensing status of hosted media assets, including generated audio.

@@ -8,8 +8,6 @@ import {
     runDownloadWithButtonState,
 } from '../services/sequencePdfExport.js';
 
-const jsPdfModulePromise = import('jspdf');
-
 const PDF_FONT_SOURCES = {
     devanagari: new URL(
         '../../node_modules/@expo-google-fonts/noto-sans-devanagari/400Regular/NotoSansDevanagari_400Regular.ttf',
@@ -171,7 +169,7 @@ export async function loadFont(pdf, fontData, fontName) {
  * but with real selectable, copyable text instead of rasterized images.
  */
 export async function generateTablePdf(options = {}, dependencies = {}) {
-    const PdfClass = dependencies.PdfClass || (await jsPdfModulePromise).jsPDF;
+    const PdfClass = dependencies.PdfClass || (await import('jspdf')).jsPDF;
     const environment = dependencies.environment || {};
     const fontData = dependencies.fontData || PDF_FONT_DATA;
     const pdf = new PdfClass('p', 'mm', 'a4');
