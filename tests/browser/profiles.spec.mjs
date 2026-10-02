@@ -2,6 +2,38 @@ import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { createProfile } from './profile-helpers.mjs';
 
+test('a sole profile opens on initial load without a remembered selection', async ({ page }) => {
+    await createProfile(page, 'Only profile');
+    const profileId = await page.evaluate(() => {
+        sessionStorage.clear();
+        localStorage.removeItem('yoga-browser-test-device-profiles-v1-last-used');
+        return window.currentUserId;
+    });
+    await page.reload();
+    await expect(page.locator('#loginScreen')).toHaveAttribute('data-ready', 'true');
+    await expect(page.locator('#mainAppContainer')).toBeVisible();
+    expect(await page.evaluate(() => window.currentUserId)).toBe(profileId);
+});
+
+test('explicit Switch Profile stays open with one profile until a choice is made', async ({ page }) => {
+    await createProfile(page, 'Only profile');
+    await page.locator('#settingsToggleButton').click();
+    await page.locator('#signOutBtn').click();
+    // Readiness follows the entire startup login decision, so this catches a
+    // briefly visible picker that immediately reopens the last-used profile.
+    await expect(page.locator('#loginScreen')).toHaveAttribute('data-ready', 'true');
+    await expect(page.locator('#loginScreen')).toBeVisible();
+    await expect(page.locator('#mainAppContainer')).toBeHidden();
+    expect(await page.evaluate(() => window.currentUserId)).toBeNull();
+    await page.reload();
+    await expect(page.locator('#loginScreen')).toHaveAttribute('data-ready', 'true');
+    await expect(page.getByRole('button', { name: 'Only profile', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Only profile', exact: true }).click();
+    await expect(page.locator('#mainAppContainer')).toBeVisible();
+    await page.reload();
+    await expect(page.locator('#mainAppContainer')).toBeVisible();
+});
+
 test('a new device offers create/import and has no password, passkey or MFA controls', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('#loginScreen')).toHaveAttribute('data-ready', 'true');
@@ -39,7 +71,8 @@ test('profile files transfer progress and settings as an independent copy withou
     await page.evaluate(() => window.markCurrentCurriculumNodeCompleteForTesting());
     await page.getByRole('button', { name: /good/i }).click();
     await expect(page.locator('#ratingOverlay')).toBeHidden();
-    await page.getByRole('button', { name: 'Preview first pose', exact: true }).click();
+    await expect(page.locator('#historyBackdrop')).toBeVisible();
+    await page.locator('#historyCloseBtn').click();
     await page.locator('#themeToggle').click();
     const theme = await page.locator('html').getAttribute('data-theme');
     await page.locator('#settingsToggleButton').click();

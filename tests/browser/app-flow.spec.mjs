@@ -136,10 +136,58 @@ test('Start Today can load composed and recovery curriculum nodes', async ({ pag
   await expect(page.locator('#curriculumPracticeSummary')).toContainText('Mock Combined Asana');
   await expect(page.locator('#curriculumPracticeSummary')).toContainText('Mock Quiet Pranayama');
   await expect(page.locator('#poseName')).not.toContainText('Select a sequence');
+  await expect(page.locator('#activeCategoryTitle')).toHaveText('Light on Yoga · Light on Pranayama');
 
   await page.evaluate(() => window.startTodayPractice(9007));
   await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Rest|Savasana/i);
   await expect(page.locator('body')).toContainText('Recovery Day - Rest Day');
+  await expect(page.locator('#activeCategoryTitle')).toHaveText('How to Use Yoga');
+});
+
+test('manual book selection cannot supply the Today practice book label', async ({ page }) => {
+  await openProfile(page);
+  await page.getByRole('button', { name: /start today's practice/i }).click();
+  await page.getByRole('button', { name: 'Preview first pose', exact: true }).click();
+  await page.locator('#exitCurriculumPracticeBtn').click();
+  await expect(page.locator('#activeCategoryTitle')).toBeHidden();
+
+  // Controlled attribution fixture: the repository intentionally excludes the
+  // production curriculum. Keep its book names out of the shared mock corpus.
+  await page.evaluate(() => {
+    const manual = window.courses.find(course => course.supabaseId === '103');
+    manual.id = '213';
+    manual.category = 'Yoga The Iyengar Way > C1';
+    window.renderSequenceDropdown();
+    const rpc = window.db.rpc.bind(window.db);
+    window.db.rpc = async (name, params) => {
+      const result = await rpc(name, params);
+      if (name === 'get_today_curriculum_practice' && result.data) {
+        for (const practice of (Array.isArray(result.data) ? result.data : [result.data])) {
+          practice.source_name = 'Yoga: A Gem for Women';
+          practice.source_key = 'yoga_a_gem_for_women';
+          practice.source_course = 'gem_introductory';
+        }
+      }
+      return result;
+    };
+  });
+  await page.locator('#manualLibraryPanel > summary').click();
+  await page.locator('#categoryFilter').selectOption('Yoga The Iyengar Way > C1');
+  await page.locator('#sequenceSelect').selectOption({ label: '213 — Mock Quiet Pranayama' });
+  await expect(page.locator('#activeCategoryTitle')).toHaveText('Yoga The Iyengar Way');
+  await page.getByRole('button', { name: 'Preview first pose', exact: true }).click();
+  await page.getByRole('button', { name: /start today's practice/i }).click();
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 1/);
+  await expect(page.locator('#activeCategoryTitle')).toHaveText('Yoga: A Gem for Women');
+  await page.getByRole('button', { name: 'Preview first pose', exact: true }).click();
+  await expect(page.locator('#collageWrap .teaching-card__meta')).toContainText('ID: 001');
+  await expect(page.locator('#activeCategoryTitle')).toHaveText('Yoga: A Gem for Women');
+
+  await page.locator('#exitCurriculumPracticeBtn').click();
+  await page.locator('#manualLibraryPanel > summary').click();
+  await page.locator('#categoryFilter').selectOption('Yoga The Iyengar Way > C1');
+  await page.locator('#sequenceSelect').selectOption({ label: '213 — Mock Quiet Pranayama' });
+  await expect(page.locator('#activeCategoryTitle')).toHaveText('Yoga The Iyengar Way');
 });
 
 test('optional curriculum stage does not interrupt completion with a prompt', async ({ page }) => {

@@ -154,7 +154,6 @@ export function renderCategoryFilter() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function updateActiveCategoryTitle() {
-    const sel      = document.getElementById("sequenceSelect");
     const filterEl = document.getElementById("categoryFilter");
     const activeTitleEl = document.getElementById("activeCategoryTitle");
     if (!activeTitleEl) return;
@@ -162,9 +161,16 @@ export function updateActiveCategoryTitle() {
     let displayCat = null;
     let didChangeFilter = false;
 
-    // If a sequence is actively selected, it dictates the category.
-    if (sel && sel.value && window.courses && window.courses[sel.value]) {
-        const courseCat = window.courses[sel.value].category || "Uncategorized";
+    // The player source comes from its active practice, never the manual picker.
+    const practice = window.currentCurriculumPractice;
+    if (practice) {
+        const sources = practice.is_composed_practice
+            ? (practice.composition_parts || []).map(part => part.source_name).filter(Boolean)
+            : [];
+        displayCat = [...new Set(sources)].join(' · ') || practice.source_name
+            || window.currentSequence?.category?.split('>')[0].trim();
+    } else if (window.currentSequence) {
+        const courseCat = window.currentSequence.category || "Uncategorized";
 
         // Auto-update the category dropdown to match the selected sequence
         // if user found it via "All Collections"

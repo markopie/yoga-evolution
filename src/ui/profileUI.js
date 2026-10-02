@@ -13,6 +13,7 @@ import { migrateProfileSequences } from '../services/profileSequenceMigration.js
 const byId = (id) => document.getElementById(id);
 const backupNoticeKey = (userId) => `yoga-profile-backup-notice-v1:${userId}`;
 const LAST_PROFILE_KEY = `${PROFILES_KEY}-last-used`;
+const PICKER_REQUEST_KEY = `${SELECTED_PROFILE_KEY}-picker-requested`;
 
 function readLastProfileId() {
     try { return localStorage.getItem(LAST_PROFILE_KEY); } catch { return null; }
@@ -45,6 +46,7 @@ export async function setupProfileUI() {
     const reloadToPicker = () => {
         window.saveCurrentProgress?.();
         sessionStorage.removeItem(SELECTED_PROFILE_KEY);
+        sessionStorage.setItem(PICKER_REQUEST_KEY, 'true');
         location.reload();
     };
 
@@ -77,6 +79,7 @@ export async function setupProfileUI() {
                     if (!snapshot?.nodes?.length) throw new Error('Connect once to download this profile for offline use.');
                 }
                 sessionStorage.setItem(SELECTED_PROFILE_KEY, profile.id);
+                sessionStorage.removeItem(PICKER_REQUEST_KEY);
                 rememberLastProfile(profile.id);
                 location.reload();
             }));
@@ -142,6 +145,7 @@ export async function setupProfileUI() {
             const profile = rememberProfile(newSession);
             renameProfile(profile.id, name);
             sessionStorage.setItem(SELECTED_PROFILE_KEY, profile.id);
+            sessionStorage.removeItem(PICKER_REQUEST_KEY);
             location.reload();
         } catch (error) {
             if (newSession) {
@@ -213,12 +217,17 @@ export async function setupProfileUI() {
         // Adopt existing signed-in users without creating a replacement identity.
         if (session?.refresh_token) rememberProfile(session);
         render();
+        // An explicit switch stays on the picker across reloads until a profile
+        // is chosen (or created/imported), even if only one profile exists.
+        if (sessionStorage.getItem(PICKER_REQUEST_KEY)) return;
         // The active Supabase session is still the source of truth. The
         // local last-used id only removes the need to click the same profile
         // after a normal reload/browser restart; it is never used to switch a
         // different authenticated tab to another profile.
-        const selectedId = sessionStorage.getItem(SELECTED_PROFILE_KEY) || readLastProfileId();
-        const profile = readProfiles().find((item) => item.id === selectedId);
+        const profiles = readProfiles();
+        const selectedId = sessionStorage.getItem(SELECTED_PROFILE_KEY) || readLastProfileId()
+            || (profiles.length === 1 ? profiles[0].id : null);
+        const profile = profiles.find((item) => item.id === selectedId);
         if (!profile) return;
         showMessage('Opening your last-used profile…');
         let online = navigator.onLine;

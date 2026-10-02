@@ -198,6 +198,7 @@ function updateCurriculumLibraryLock() {
         modeBadge.textContent = locked ? 'Curriculum practice' : 'Manual practice';
         modeBadge.style.display = window.currentSequence ? '' : 'none';
     }
+    if (typeof window.updateActiveCategoryTitle === 'function') window.updateActiveCategoryTitle();
 }
 
 function exitCurriculumPractice() {
