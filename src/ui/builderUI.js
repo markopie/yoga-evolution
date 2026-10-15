@@ -1,4 +1,5 @@
 import { builderState } from '../store/builderState.js';
+import { drawClassCover } from '../services/classPresentation.js';
 import { builderPoseName } from './builderTemplates.js';
 import {
     buildSequenceExportData,
@@ -118,6 +119,23 @@ export async function downloadSequencePdf(button = document.getElementById('btnD
     });
 }
 
+export async function downloadClassPdf(course, cover, button) {
+    return runDownloadWithButtonState(button, async () => {
+        try {
+            const environment = currentPdfEnvironment();
+            const main = linkedCourseExportData(course, environment);
+            const linked = collectLinkedSequences(main.poses, environment).map(item => linkedCourseExportData(item, environment));
+            const download = await createSequenceDownload(main, linked, {
+                renderPdf: data => generateTablePdf(data === main ? { ...data, classCover: cover } : data, { environment }),
+            });
+            triggerBlobDownload(download.blob, download.filename);
+        } catch (error) {
+            console.error('[PDF] Class export failed:', error);
+            alert(pdfErrorMessage(error));
+        }
+    });
+}
+
 
 
 /**
@@ -182,6 +200,7 @@ export async function generateTablePdf(options = {}, dependencies = {}) {
     // ── Load custom fonts ────────────────────────────────────────────────────
     const devanagariFont = await loadFont(pdf, fontData.devanagari, 'NotoSansDevanagari');
     const iastFont = await loadFont(pdf, fontData.iast, 'NotoSerif');
+    if (options.classCover) drawClassCover(pdf, options.classCover, iastFont || 'helvetica');
 
     // ── Gather Data ──────────────────────────────────────────────────────────
     const titleText = options.title || 'Untitled Sequence';

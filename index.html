@@ -78,9 +78,9 @@
           </div>
           <div class="header-account-controls" style="display:flex; align-items:center;">
              <button id="syncStatusButton" class="sync-status-pill" type="button" hidden aria-live="polite" aria-controls="appSettingsPanel"></button>
-             <button id="userEmailDisplay" class="profile-history-trigger" type="button" aria-label="Open progress" aria-controls="historyBackdrop" title="Open progress"></button>
+             <span id="userEmailDisplay" class="profile-name"></span>
              <button id="settingsToggleButton" class="tiny settings-toggle" type="button" aria-label="Open Settings" aria-controls="appSettingsPanel" aria-expanded="false" title="Open Settings">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m19.43 12.98.04-.98-.04-.98 2.11-1.65-2-3.46-2.49 1a7.2 7.2 0 0 0-1.7-.98L15 3h-4l-.35 2.93c-.6.24-1.17.57-1.7.98l-2.49-1-2 3.46 2.11 1.65a7.2 7.2 0 0 0 0 1.96l-2.11 1.65 2 3.46 2.49-1c.53.4 1.1.74 1.7.98L11 21h4l.35-2.93c.6-.24 1.17-.57 1.7-.98l2.49 1 2-3.46-2.11-1.65Z M13 15.5A3.5 3.5 0 1 1 13 8a3.5 3.5 0 0 1 0 7.5Z" fill="currentColor"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m19.43 12.98.04-.98-.04-.98 2.11-1.65-2-3.46-2.49 1a7.2 7.2 0 0 0-1.7-.98L15 3h-4l-.35 2.93c-.6.24-1.17.57-1.7.98l-2.49-1-2 3.46 2.11 1.65a7.2 7.2 0 0 0 0 1.96l-2.11 1.65 2 3.46 2.49-1c.53.4 1.1.74 1.7.98L11 21h4l.35-2.93c.6-.24 1.17-.57 1.7-.98l2.49 1 2-3.46-2.11-1.65Z M13 15.5A3.5 3.5 0 1 1 13 8a3.5 3.5 0 0 1 0 7.5Z" fill="currentColor"/></svg><span>Settings</span>
              </button>
           </div>
        </div>
@@ -93,9 +93,9 @@
                 <div id="curriculumPracticeSummary" class="curriculum-practice-panel__summary">Ready when you are.</div>
              </div>
              <div class="curriculum-practice-panel__actions">
-               <button id="startTodayPracticeBtn" type="button" class="curriculum-practice-panel__button">Start Today's Practice</button>
-               <button id="exitCurriculumPracticeBtn" type="button" class="tiny curriculum-practice-panel__exit-button" style="display:none;">Exit Practice</button>
-               <button id="curriculumReviewBtn" type="button" class="tiny curriculum-practice-panel__review-button" style="display:none;">Review Practice</button>
+               <button id="startTodayPracticeBtn" type="button" class="curriculum-practice-panel__button">Open today's practice</button>
+               <button id="exitCurriculumPracticeBtn" type="button" class="tiny curriculum-practice-panel__exit-button" style="display:none;">End practice</button>
+               <button id="curriculumReviewBtn" type="button" class="tiny curriculum-practice-panel__review-button" style="display:none;">View sequence</button>
                <button id="curriculumDetailsToggleBtn" type="button" class="tiny curriculum-practice-panel__dev-button" style="display:none;" aria-expanded="false" aria-controls="curriculumPracticeDetails">Details</button>
                <button id="markCurriculumCompleteBtn" type="button" class="tiny curriculum-practice-panel__dev-button" style="display:none;">Mark Node Complete</button>
                <button id="undoCurriculumCompletionBtn" type="button" class="tiny curriculum-practice-panel__dev-button curriculum-practice-panel__dev-button--danger" style="display:none;">Undo Curriculum Completion</button>
@@ -108,26 +108,31 @@
 
        <details id="manualLibraryPanel" class="manual-library-panel">
           <summary class="manual-library-panel__summary">
-             <span class="manual-library-label">Choose a different practice</span>
+             <span class="manual-library-label">Practice library</span>
              <span id="manualLibraryModeNote" class="manual-library-mode-note">Browse the practice library</span>
           </summary>
           <div class="manual-library-panel__body">
+             <label class="sequence-search-field">Search sequences<input id="sequenceSearch" type="search" placeholder="Sequence title or ID"></label>
              <div class="sequence-pose-filter">
+               <label for="poseSequenceFilter">Contains pose ID</label>
                <input id="poseSequenceFilter" type="search" inputmode="numeric" placeholder="Filter by pose ID, e.g. 176" aria-label="Filter sequences by pose ID">
                <button id="clearPoseSequenceFilter" type="button" class="tiny">Clear</button>
                <span id="poseSequenceFilterStatus" class="sequence-pose-filter__status"></span>
              </div>
              <div class="row manual-library-panel__controls">
-               <select id="categoryFilter" style="max-width: 240px; font-weight:bold; color:#444;">
+               <label class="class-field">Collection<select id="categoryFilter" style="max-width: 240px; font-weight:bold; color:#444;">
 
                  <option value="ALL">📂 All Collections</option>
                </select>
-               <select id="sequenceSelect" style="flex:1; min-width: 200px;">
+               </label><label class="class-field">Choose a sequence<select id="sequenceSelect" style="flex:1; min-width: 200px;">
 
-                 <option value="">Select a course</option>
+                 <option value="">Choose a sequence</option>
 
                </select>
            
+               </label>
+             </div>
+             <div id="sequenceActions" class="manual-library-panel__actions">
                <div id="durationDialWrap" title="Adjust hold pace — double-click to reset">
                  <div id="durationDialTrackWrap">
                    <input type="range" id="durationDial" min="0" max="100" step="1" value="50">
@@ -139,7 +144,7 @@
                  </div>
                </div>
 
-               <button id="browseBtn" type="button" title="Browse / search asanas">Browse</button>
+               <button id="browseBtn" type="button" title="Browse poses">Browse poses</button>
              </div>
           </div>
        </details>
@@ -229,7 +234,7 @@
              <div class="offline-media-panel__actions">
                 <button type="button" data-offline-download>Download for offline use</button>
                 <button type="button" class="secondary" data-offline-cancel hidden>Pause</button>
-                <button type="button" class="secondary" data-offline-remove>Remove all</button>
+                <button type="button" class="secondary" data-offline-remove>Remove offline downloads</button>
              </div>
              <p class="offline-media-panel__note">
                 Downloads are kept separate from app updates. Browser storage may still be cleared by your device.
@@ -245,12 +250,12 @@
                 <button type="submit">Save name</button>
              </form>
              <p id="profileSettingsMessage" role="status"></p>
-             <button id="exportProfileBtn" type="button">Export profile</button>
+             <button id="exportProfileBtn" type="button">Export backup</button>
              <div id="profileBackupNotice" class="profile-backup-notice" role="status" hidden>
                 <strong>Protect your profile</strong>
-                <p>Your progress is stored in this browser. Export a backup before clearing browser data or moving to another device.</p>
+                <p>Export a backup before clearing browser data or moving to another device. Backups include your progress, classes, student names, and form review status.</p>
                 <div class="profile-backup-notice__actions">
-                   <button id="exportProfileNoticeBtn" type="button">Export profile backup</button>
+                   <button id="exportProfileNoticeBtn" type="button">Export backup</button>
                    <button id="dismissProfileBackupNoticeBtn" type="button" class="secondary">Remind me later</button>
                 </div>
              </div>
@@ -470,7 +475,7 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="browseTitle">
       <div class="modal-header">
          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-            <strong id="browseTitle">Browse Asanas</strong>
+            <strong id="browseTitle">Browse poses</strong>
             <span class="muted" id="browseCount">–</span>
          </div>
          <div style="display:flex;gap:10px;align-items:center">
@@ -481,13 +486,13 @@
         <div class="browse-left">
           <div class="browse-filters">
             <div style="display:flex;gap:8px;align-items:center;flex:1;min-width:180px">
-               <input id="browseSearch" placeholder="Search name (English or IAST)" style="flex:1">
+               <label>Search poses<input id="browseSearch" placeholder="Name in English or Sanskrit" style="flex:1"></label>
             </div>
-            <input id="browseAsanaNo" class="tiny" placeholder="Asana #">
+            <label>Pose ID<input id="browseAsanaNo" class="tiny" placeholder="e.g. 002"></label>
             
-            <select id="browseCategory">
+            <label>Category<select id="browseCategory">
               <option value="">All categories</option>
-            </select>
+            </select></label>
 
             <label class="muted" style="display:flex;gap:8px;align-items:center;min-width:170px">
               <input id="browseFinalOnly" type="checkbox">

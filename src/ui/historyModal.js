@@ -17,12 +17,14 @@ const viewManual = $('histViewManual');
 const viewCurriculum = $('histViewCurriculum');
 const viewLabel = $('historyViewLabel');
 let historyOpener = null;
+let openRequest = 0;
 
 function getDefaultHistoryTab() {
     return window.currentCurriculumPractice?.curriculum_node_id != null ? 'curriculum' : 'current';
 }
 
-function closeHistoryModal() {
+export function closeHistoryModal() {
+    openRequest++;
     if (!histBackdrop) return;
     console.info('[completion-flow] progress-close', {
         clearPracticeOnClose: histBackdrop.dataset.clearPracticeOnClose === 'true',
@@ -39,6 +41,7 @@ function closeHistoryModal() {
         delete histBackdrop.dataset.clearPracticeOnClose;
     }
     restoreRoadmapState();
+    window.dispatchEvent(new Event('yoga:progress-close'));
     if (historyOpener instanceof HTMLElement) historyOpener.focus();
 }
 
@@ -74,7 +77,7 @@ document.addEventListener('keydown', (event) => {
         closeHistoryModal();
         return;
     }
-    if (event.key !== 'Tab' || !historyDialog) return;
+    if (event.key !== 'Tab' || !historyDialog || histBackdrop.classList.contains('progress-screen')) return;
     const focusable = [...historyDialog.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')];
     if (!focusable.length) return;
     const first = focusable[0];
@@ -121,11 +124,13 @@ function activePracticePercent() {
 
 async function openHistoryModal(defaultTab = null, { clearPracticeOnClose = false, completedPractice = null } = {}) {
     if (!histBackdrop) return;
+    const request = ++openRequest;
     historyOpener = document.activeElement;
     const selectedTab = ['current', 'manual', 'curriculum'].includes(defaultTab)
         ? defaultTab
         : getDefaultHistoryTab();
     if (selectedTab === 'current' && (getServerHistoryCache() === null || getServerHistoryCache() === undefined)) await fetchServerHistory();
+    if (request !== openRequest) return;
     const completionNotice = $('historyCompletionNotice');
     if (completionNotice) {
         const completedTitle = completedPractice?.title || '';
@@ -137,8 +142,10 @@ async function openHistoryModal(defaultTab = null, { clearPracticeOnClose = fals
             : '';
     }
 
+    if (window.playbackEngine?.running) window.stopTimer();
+    window.dispatchEvent(new Event('yoga:progress-open'));
     histBackdrop.style.display = 'flex';
-    document.body.classList.add('modal-open');
+    if (!histBackdrop.classList.contains('progress-screen')) document.body.classList.add('modal-open');
     histBackdrop.dataset.clearPracticeOnClose = clearPracticeOnClose ? 'true' : 'false';
     switchHistoryTab(selectedTab);
     historyCloseBtn?.focus();

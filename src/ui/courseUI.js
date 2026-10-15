@@ -1,6 +1,7 @@
 // src/ui/courseUI.js
 // Course/Sequence dropdown rendering + collage/plate renderers
 
+import { matchesSequence, sequenceLabel } from '../services/sequenceTeaching.js';
 import { fetchCourseIdsByPoseId } from "../services/coursePoseIndexService.js";
 import { normalisePoseId, poseIdFromSequenceNode } from "../utils/poseId.js";
 
@@ -273,6 +274,7 @@ function setupPoseSequenceFilter() {
         timer = setTimeout(() => renderCourseUI(), 80);
     };
 
+    document.getElementById('sequenceSearch')?.addEventListener('input', rerender);
     input.dataset.wired = 'true';
     input.addEventListener('input', rerender);
 
@@ -306,10 +308,11 @@ export function renderCourseUI() {
     if (poseTarget) requestPoseFilterMatches(poseTarget);
     else requestPoseFilterMatches('');
 
-    sel.innerHTML = `<option value="">Select a course</option>`;
+    sel.innerHTML = `<option value="">Choose a sequence</option>`;
 
     const grouped = {};
     courses.forEach((course, idx) => {
+        if (!matchesSequence(course, document.getElementById('sequenceSearch')?.value || '')) return;
         const cat = course.category ? course.category.trim() : "Uncategorized";
         if (filterVal !== "ALL" && cat !== filterVal) return;
         if (poseTarget) {
@@ -335,13 +338,9 @@ export function renderCourseUI() {
             const opt = document.createElement("option");
             opt.value = String(item.idx);
 
-            const title = item.course.title || `Course ${item.idx + 1}`;
-            const courseId = item.course.id || item.course.supabaseId;
-
-            // Format: "104 — Core Flow 🏷️ (Alias)"
             // Tagging Aliases ensures they are indexed and distinguishable in search.
             const aliasSuffix = item.course.is_alias ? " 🏷️ (Alias)" : "";
-            opt.textContent = (courseId ? `${courseId} — ${title}` : title) + aliasSuffix;
+            opt.textContent = sequenceLabel(item.course) + aliasSuffix;
 
             groupEl.appendChild(opt);
         });
@@ -354,6 +353,9 @@ export function renderCourseUI() {
         else sel.value = "";
     }
 
+    window.refreshPracticeNavigation?.();
+    window.dispatchEvent(new Event('yoga:sequences-updated'));
+    if (!matchedCount) sel.firstElementChild.textContent = 'No matching sequences';
     if (poseStatusEl) {
         const indexLoading = poseTarget && poseFilterIndexState.target === poseTarget && poseFilterIndexState.loading;
         const indexError = poseTarget && poseFilterIndexState.target === poseTarget && poseFilterIndexState.error;

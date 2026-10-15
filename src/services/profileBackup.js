@@ -1,3 +1,4 @@
+import { readClasses } from './classRecords.js';
 import { supabase } from './supabaseClient.js';
 import { readProfiles, profileStorageKey } from './deviceProfiles.js';
 import { listQueuedCompletions } from './offlineStore.js';
@@ -35,6 +36,6 @@ export async function exportProfileBackup(userId = window.currentUserId) {
     return validateProfileBackup({
         format: 'yoga-profile', version: 1, curriculumSlug: ACTIVE_CURRICULUM_SLUG,
         name: profile.name, exportedAt: new Date().toISOString(),
-        completions: [...allCompletions.values()], mastery, enrollments, preferences,
+        completions: [...allCompletions.values()], mastery, enrollments, preferences, classes: readClasses(userId),
     });
 }

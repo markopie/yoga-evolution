@@ -193,7 +193,7 @@ window.playbackEngine.onStop = () => {
     document.body.classList.remove("modal-open");
     if (typeof window.updateTotalAndLastUI === "function") window.updateTotalAndLastUI();
     const btn = document.getElementById("startStopBtn");
-    if(btn) btn.textContent = "Start";
+    if(btn) btn.textContent = window.playbackEngine.hasStarted ? "Resume" : "Start";
     const statusEl = document.getElementById("statusText");
     if (statusEl) statusEl.textContent = "Paused";
     if (typeof window.disableWakeLock === "function") window.disableWakeLock();

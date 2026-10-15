@@ -162,6 +162,7 @@ function updateCurriculumLibraryLock() {
         $('categoryFilter'),
         $('sequenceSelect'),
         $('poseSequenceFilter'),
+        $('sequenceSearch'),
         $('clearPoseSequenceFilter'),
     ].filter(Boolean);
 
@@ -230,6 +231,7 @@ function exitCurriculumPractice() {
     if (selector) selector.value = '';
 
     if (summary) summary.textContent = 'Ready when you are.';
+    window.dispatchEvent(new Event('yoga:practice-changed'));
     if (overview) {
         overview.innerHTML = '';
         overview.style.display = 'none';
@@ -395,6 +397,7 @@ function loadResolvedSequence(practice) {
     window.pendingSequence = null;
     window.currentSequence = frozenSequence;
     setPracticeWorkspaceVisible(true);
+    window.dispatchEvent(new Event('yoga:practice-changed'));
 
     if (typeof window.applySequenceInternal === 'function') {
         window.applySequenceInternal(window.currentSequence);
@@ -430,7 +433,7 @@ async function startTodayPractice(
 ) {
     const btn = $('startTodayPracticeBtn');
     const summary = $('curriculumPracticeSummary');
-    const originalText = btn?.textContent || 'Start Today\'s Practice';
+    const originalText = btn?.textContent || 'Open today\'s practice';
 
     if (btn) {
         btn.disabled = true;
@@ -502,6 +505,7 @@ async function startTodayPractice(
         if (isRestOrRecoveryNode(practice) && !hasPlayableComposition) {
             window.currentCurriculumPractice = practice;
             setPracticeWorkspaceVisible(true);
+            window.dispatchEvent(new Event('yoga:practice-changed'));
             if (summary) summary.textContent = practice.special_instructions || `${nonSequenceNodeTitle(practice)}.`;
             if ($('statusText')) $('statusText').textContent = nonSequenceNodeTitle(practice);
             if ($('poseName')) $('poseName').textContent = nonSequenceNodeTitle(practice);

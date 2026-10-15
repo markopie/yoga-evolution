@@ -65,7 +65,7 @@ test('create, reopen, and switch profiles without credentials or theme initializ
 test('profile files transfer progress and settings as an independent copy without session tokens', async ({ page }) => {
     await createProfile(page, 'Alice');
     const originalId = await page.evaluate(() => window.currentUserId);
-    await page.getByRole('button', { name: /start today's practice/i }).click();
+    await page.getByRole('button', { name: /open today's practice/i }).click();
     await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 1/);
     await expect(page.locator('#practiceWorkspace')).toBeVisible();
     await page.evaluate(() => window.markCurrentCurriculumNodeCompleteForTesting());
@@ -89,7 +89,7 @@ test('profile files transfer progress and settings as an independent copy withou
     await expect(page.locator('#mainAppContainer')).toBeVisible();
     expect(await page.evaluate(() => window.currentUserId)).not.toBe(originalId);
     await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
-    await page.getByRole('button', { name: /start today's practice/i }).click();
+    await page.getByRole('button', { name: /open today's practice/i }).click();
     await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 2/);
     await page.getByRole('button', { name: 'Preview first pose', exact: true }).click();
     await page.locator('#settingsToggleButton').click();

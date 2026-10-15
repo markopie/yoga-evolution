@@ -34,6 +34,7 @@ export class PlaybackEngine {
     }
 
     resetPracticeTimer() {
+        this.hasStarted = false;
         this._activePracticeMs = 0;
         this._playStartWallMs  = null;
     }
@@ -57,6 +58,7 @@ export class PlaybackEngine {
             return;
         }
 
+        this.hasStarted = true;
         this.running = true;
         this.isSuspended = false;
         this._playStartWallMs = Date.now();

@@ -64,6 +64,7 @@
     "validate:curriculum-testing-v2": "node scripts/active/validate_testing_curriculum_v2.mjs",
     "validate:curriculum-v4-gate3": "node scripts/active/validate_integrated_curriculum_v4_gate3.mjs",
     "test:browser": "playwright test",
+    "test:browser:connected": "playwright test --config playwright.connected.config.mjs",
     "test:browser:local-supabase": "node scripts/active/run_local_supabase_browser_smoke.mjs",
     "test:browser:headed": "playwright test --headed",
     "test:browser:ui": "playwright test --ui",

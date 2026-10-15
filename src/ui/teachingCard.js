@@ -19,7 +19,7 @@ export function renderTeachingCard({ asana, poseName = '', poseId = '', variatio
     const card = document.createElement('section');
     card.className = `teaching-card${compact ? ' teaching-card--compact' : ''}${focusMode ? ' teaching-card--focus' : ''}`;
     const primary = poseName || displayName(asana) || 'Pose';
-    const secondary = asana?.iast && asana.iast !== primary ? asana.iast : '';
+    const secondary = asana?.iast && asana.iast !== primary ? asana.iast : (asana?.english && asana.english !== primary ? asana.english : '');
     const name = document.createElement('div');
     name.className = 'teaching-card__name';
     name.textContent = primary;

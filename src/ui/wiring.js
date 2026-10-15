@@ -4,7 +4,6 @@ import { $, showError, safeListen, normaliseText, setStatus } from '../utils/dom
 import { prefersIAST, setIASTPref, formatHMS, displayName } from '../utils/format.js';
 import { normalizePlate } from '../services/dataAdapter.js';
 import { playbackEngine } from '../playback/timer.js';
-import { openHistoryModal } from './historyModal.js';
 import { builderRender, openEditCourse, builderOpen, addPoseToBuilder, createRepeatGroup, openLinkSequenceModal } from './builder.js';
 // ── Application State Aliases ────────────────────────────────────────────────
 // ── UI Constants ─────────────────────────────────────────────────────────────
@@ -28,6 +27,7 @@ function setManualLibraryPanelOpen(open) {
 
 /** Update the Next button text: "Complete ▶" on last pose, "Next ▶" otherwise */
 window.updateNextBtnText = function updateNextBtnText() {
+    window.refreshPracticeNavigation?.();
     const nextBtn = document.getElementById('nextBtn');
     if (!nextBtn) return;
 
@@ -329,14 +329,16 @@ function setupSequenceSelector() {
         editBtn.id = "quickEditBtn";
 
         // Use standard text instead of weird emojis
-        editBtn.innerHTML = "Review";
-        editBtn.title = "Review / Edit Sequence";
+        editBtn.textContent = "View sequence";
+        editBtn.disabled = !getCurrentSequence();
+        editBtn.title = "View sequence";
         editBtn.className = "tiny";
 
         // Normal button styling (matching the + New button)
         editBtn.style.cssText = "margin-left: 8px; padding: 4px 12px; font-size: 0.9rem; font-weight: 600; border-radius: 8px;";
 
-        seqSelect.parentNode.insertBefore(editBtn, seqSelect.nextSibling);
+        const actions = document.getElementById('sequenceActions');
+        actions.prepend(editBtn);
 
         editBtn.onclick = () => {
             if (!getCurrentSequence()) return showError("Please select a sequence first.");
@@ -345,7 +347,7 @@ function setupSequenceSelector() {
 
         const newBtn = document.createElement("button");
         newBtn.id = "newSequenceBtn";
-        newBtn.textContent = "+ New";
+        newBtn.textContent = "New sequence";
         newBtn.className = "tiny";
         newBtn.style.cssText = "margin-left: 4px; padding: 4px 10px; font-weight: 600;";
         editBtn.parentNode.insertBefore(newBtn, editBtn.nextSibling);
@@ -590,6 +592,7 @@ function setupBuilderWiring() {
 
     const closeBuilderModal = () => {
         $("editCourseBackdrop").style.display = "none";
+        builderState.opener?.focus();
         document.body.classList.remove("modal-open");
     };
 
@@ -602,11 +605,6 @@ function setupUIExtras() {
     safeListen("iastToggleBtn", "click", () => {
         setIASTPref(!prefersIAST());
         if (getCurrentSequence()) window.setPose(window.currentIndex);
-    });
-
-    safeListen("userEmailDisplay", "click", (e) => {
-        e.preventDefault();
-        openHistoryModal();
     });
 }
 

@@ -1,6 +1,8 @@
 import '../styles/main.css';
+import '../styles/classes.css';
 
 async function cacheLoadedAppShell() {
+    if (import.meta.env.DEV) return;
     if (!('caches' in window)) return;
     const controller = new AbortController();
     const cancel = () => controller.abort();
@@ -28,7 +30,7 @@ async function cacheLoadedAppShell() {
 }
 
 if (!new URLSearchParams(window.location.search).get('prototype')) {
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator && !import.meta.env.DEV) {
         const base = import.meta.env.BASE_URL || '/';
         // Version the script URL as well as the cache name. This prevents an
         // older worker from serving a cached sw.js and hiding client fixes
@@ -56,6 +58,8 @@ if (!new URLSearchParams(window.location.search).get('prototype')) {
     setupOfflineMediaUI().catch((error) =>
         console.warn('[Offline] Offline media controls unavailable:', error));
     setupSyncStatusUI();
+    const { setupAppNavigation } = await import('./ui/appNavigation.js');
+    setupAppNavigation();
     await setupProfileUI();
     cacheLoadedAppShell().catch((error) =>
         console.warn('[Offline] App shell caching failed:', error));

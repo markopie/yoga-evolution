@@ -1,5 +1,6 @@
 import { exportProfileBackup } from '../services/profileBackup.js';
 import { validateProfileBackup, PROFILE_FILE_LIMIT } from '../services/profileFile.js';
+import { serverProfileBackup, writeClasses } from '../services/classRecords.js';
 import { supabase, supabaseConfig } from '../services/supabaseClient.js';
 import {
     PROFILES_KEY, SELECTED_PROFILE_KEY, readProfiles, rememberProfile,
@@ -139,11 +140,12 @@ export async function setupProfileUI() {
             if (error) throw error;
             newSession = data.session;
             if (backup) {
-                const { error: importError } = await supabase.rpc('import_device_profile', { p_backup: backup });
+                const { error: importError } = await supabase.rpc('import_device_profile', { p_backup: serverProfileBackup(backup) });
                 if (importError) throw importError;
             }
             const profile = rememberProfile(newSession);
             renameProfile(profile.id, name);
+            if (backup) writeClasses(backup.classes || [], profile.id);
             sessionStorage.setItem(SELECTED_PROFILE_KEY, profile.id);
             sessionStorage.removeItem(PICKER_REQUEST_KEY);
             location.reload();

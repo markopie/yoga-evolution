@@ -14,6 +14,32 @@ The repository's normal/testing app must use hosted Supabase. The local Supabase
 
 Run checks with `npm test`, `npm run build`, and `npm run test:browser`.
 
+Use `npm run test:browser:connected` to verify Classes, sequence PDF downloads,
+manual/curriculum playback, Browse, and backup import against the hosted Supabase
+configuration in `.env.local`. This run uses real authentication and database
+requests, creates dedicated integration profiles and a backup copy, and leaves
+existing profiles and sequences alone. Class/student records stay in browser
+storage and are checked for exclusion from outgoing database requests.
+`test:browser` remains the separate fixture-based regression suite; it is not a
+replacement for the connected test. Use `npm run dev` for the connected visual
+preview. Development previews do not install the offline app cache.
+
+## Classes
+
+Classes belong to the open profile and are saved explicitly in this browser.
+Each class references an existing sequence and keeps its own student names,
+form-received-and-reviewed checkbox/date, and additional props. Keep signed
+documents outside the app. Recorded props come only from sequence metadata and
+recognised prop tags, including linked sequences. All props are included by
+default; saved ticks record which props to include in that class.
+Use **View sequence → Download PDF** for the existing printable sequence sheet.
+Saved classes open as a class sheet; choose **Edit class** to change their details.
+The class sheet also offers **Download PDF** with an optional cover containing
+the class name, sequence, selected props, and student names. Form-review status
+and dates are excluded from the cover, and the sequence pages retain their design.
+Class/student records are included in an exported backup and restored locally
+when that backup is imported. They are not synced to Supabase.
+
 ## Deploy
 
 GitHub Pages deployment is configured through `.github/workflows/deploy-pages.yml`. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` as repository variables or secrets before enabling Pages with GitHub Actions.

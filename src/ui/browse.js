@@ -2,7 +2,7 @@ import { $, enterBrowseDetailMode, exitBrowseDetailMode } from "../utils/dom.js"
 import { isBrowseMobile } from "../utils/helpers.js";
 import { playAsanaAudio } from "../playback/audioEngine.js";
 import { normalizePlate } from "../services/dataAdapter.js";
-import { displayName, prefersIAST, formatTechniqueText, formatCategory } from "../utils/format.js";
+import { displayName, formatTechniqueText, formatCategory } from "../utils/format.js";
 // Access global variables that app.js sets
 const getAsanaLibrary = () => window.asanaLibrary;
 
@@ -42,9 +42,9 @@ function setupBrowseUI() {
     if (closeBtn && !document.getElementById("browseAddAsanaBtn")) {
         const addBtn = document.createElement("button");
         addBtn.id = "browseAddAsanaBtn";
-        addBtn.textContent = "Add Asana to My Library";
+        addBtn.textContent = "Add pose";
         addBtn.className = "tiny";
-        addBtn.style.cssText = "background: #007aff; color: white; margin-right: 8px;";
+        addBtn.style.cssText = "margin-right: 8px;";
 
         addBtn.onclick = () => {
             if (typeof window.openAsanaEditor === "function") {
@@ -196,18 +196,11 @@ async function showAsanaDetail(asana, highlightStageKey = null) {
 
     d.innerHTML = "";
 
-    // 1. Header Logic
-    const titleEl = document.createElement("h2");
-    titleEl.style.margin = "0 0 10px 0";
-    titleEl.textContent = typeof displayName === "function" ? displayName(asana) : (asana.english || asana.devanagari || asana.iast || "(no name)");
-    d.appendChild(titleEl);
-
     const editBtn = document.createElement("button");
-    editBtn.textContent = "✏️ Edit in My Library";
-    editBtn.className = "edit-asana-btn";
-    editBtn.style.cssText = "background: #2196f3; color: white; padding: 6px 12px; cursor: pointer; margin-bottom: 10px; font-weight: bold; border: none; border-radius: 6px;";
+    editBtn.type = 'button';
+    editBtn.textContent = "Edit in my library";
+    editBtn.className = "edit-asana-btn secondary";
     editBtn.onclick = () => window.openAsanaEditor(asana.id || asana.asanaNo);
-    d.appendChild(editBtn);
 
    // 🛑 2. DYNAMIC HOLD TIME LOGIC
     const hj = typeof window.getHoldTimes === "function" 
@@ -219,22 +212,7 @@ async function showAsanaDetail(asana, highlightStageKey = null) {
         rangeDisplay = ` • ~${hj.standard}s (Range: ${hj.short}s–${hj.long}s)`;
     }
 
-    // 3. Build the Meta Info (IAST/English + ID Row)
-    let detailHTML = `
-      ${asana.iast && typeof prefersIAST === "function" && prefersIAST() && asana.english
-          ? `<div style="font-size:0.85rem;color:#666;margin-bottom:4px;">${asana.english}</div>`
-          : asana.iast && (typeof prefersIAST !== "function" || !prefersIAST())
-          ? `<div style="font-size:0.85rem;color:#666;margin-bottom:4px;font-style:italic;">${asana.iast}</div>`
-          : ''
-      }
-      <div class="muted">
-         <span id="poseMetaBrowse">
-            <span class="meta-text-only">ID: ${asana.id || asana.asanaNo}${rangeDisplay}</span>
-            <button id="playNameBtn" class="tiny" style="margin-left: 10px;" title="Play Audio">🔊</button>
-         </span>
-      </div>
-      <hr>
-    `;
+    let detailHTML = '';
 
     const variationOptions = Object.entries(asana.variations || {}).map(([key, value]) => ({
         key,
@@ -255,6 +233,7 @@ async function showAsanaDetail(asana, highlightStageKey = null) {
             });
         },
         timing: rangeDisplay.replace(/^ • /, ''),
+        onPlayAudio: () => playAsanaAudio(asana, null, true, null, highlightStageKey),
     });
     d.appendChild(teachingCard);
 
@@ -354,10 +333,10 @@ ${typeof formatTechniqueText === 'function' ? formatTechniqueText(baseDesc).trim
         }
     }
 
-    const playBtn = document.getElementById('playNameBtn');
-    if (playBtn) playBtn.onclick = () => {
-        if (typeof playAsanaAudio === "function") playAsanaAudio(asana, null, true, null, highlightStageKey);
-    };
+    const libraryActions = document.createElement('footer');
+    libraryActions.className = 'browse-library-actions';
+    libraryActions.append(editBtn);
+    d.append(libraryActions);
 }
 
 

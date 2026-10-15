@@ -1,3 +1,4 @@
+import { validateClasses } from './classRecords.js';
 import { ACTIVE_CURRICULUM_SLUG } from '../config/curriculumConfig.js';
 
 export const PROFILE_FILE_LIMIT = 10 * 1024 * 1024;
@@ -33,6 +34,6 @@ export function validateProfileBackup(input) {
         completions,
         mastery: input.mastery.map((row) => pick(row, ['curriculum_slug', 'repeat_group', 'easy_rating_count', 'mastered_at'])),
         enrollments: input.enrollments.map((row) => pick(row, ['curriculum_slug', 'stage_key', 'accepted_at'])),
-        preferences,
+        preferences, classes: validateClasses(input.classes),
     };
 }

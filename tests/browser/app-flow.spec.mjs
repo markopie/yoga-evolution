@@ -14,7 +14,7 @@ async function openProfile(page) {
 }
 
 async function openCurriculumMapFromProgress(page) {
-  await page.locator('#userEmailDisplay').click();
+  await page.locator('#navProgress').click();
   await page.locator('#histTabCurriculum').click();
 }
 
@@ -36,7 +36,7 @@ test('Start Today loads a playable practice and rating advances to the next node
   await expect(page.locator('#markCurriculumCompleteBtn')).toBeHidden();
   await expect(page.locator('#resetCurriculumTestProgressBtn')).toBeHidden();
 
-  await page.getByRole('button', { name: /start today's practice/i }).click();
+  await page.getByRole('button', { name: /open today's practice/i }).click();
   await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 1/);
   await expect(page.locator('#poseName')).not.toContainText('Select a sequence');
   await expect(page.locator('#practicePlaybackControls')).toBeVisible();
@@ -54,7 +54,7 @@ test('Start Today loads a playable practice and rating advances to the next node
 
 test('first Focus Mode entry resumes its countdown if the opening audio stalls', async ({ page }) => {
   await openProfile(page);
-  await page.getByRole('button', { name: /start today's practice/i }).click();
+  await page.getByRole('button', { name: /open today's practice/i }).click();
   await page.evaluate(() => {
     window.__playbackAudioCueTimeoutMs = 150;
     window.playAsanaAudio = () => new Promise(() => {});
@@ -71,7 +71,7 @@ test('first Focus Mode entry resumes its countdown if the opening audio stalls',
 
 test('previous restores the right side of a bilateral first pose on every preview cycle', async ({ page }) => {
   await openProfile(page);
-  await page.getByRole('button', { name: /start today's practice/i }).click();
+  await page.getByRole('button', { name: /open today's practice/i }).click();
 
   const next = page.locator('#nextBtn');
   const previous = page.locator('#prevBtn');
@@ -98,7 +98,7 @@ test('previous restores the right side of a bilateral first pose on every previe
 test('low completion rating repeats the same curriculum node', async ({ page }) => {
   await openProfile(page);
 
-  await page.getByRole('button', { name: /start today's practice/i }).click();
+  await page.getByRole('button', { name: /open today's practice/i }).click();
   await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 1/);
 
   await page.evaluate(() => window.markCurrentCurriculumNodeCompleteForTesting());
@@ -118,7 +118,7 @@ test('three easy ratings can skip remaining nodes in a mastery repeat group', as
       return true;
     };
   });
-  await page.getByRole('button', { name: /start today's practice/i }).click();
+  await page.getByRole('button', { name: /open today's practice/i }).click();
 
   await page.evaluate(() => window.markCurrentCurriculumNodeCompleteForTesting());
   await expect(page.locator('#ratingOverlay')).toBeVisible();
@@ -146,7 +146,7 @@ test('Start Today can load composed and recovery curriculum nodes', async ({ pag
 
 test('manual book selection cannot supply the Today practice book label', async ({ page }) => {
   await openProfile(page);
-  await page.getByRole('button', { name: /start today's practice/i }).click();
+  await page.getByRole('button', { name: /open today's practice/i }).click();
   await page.getByRole('button', { name: 'Preview first pose', exact: true }).click();
   await page.locator('#exitCurriculumPracticeBtn').click();
   await expect(page.locator('#activeCategoryTitle')).toBeHidden();
@@ -173,10 +173,10 @@ test('manual book selection cannot supply the Today practice book label', async 
   });
   await page.locator('#manualLibraryPanel > summary').click();
   await page.locator('#categoryFilter').selectOption('Yoga The Iyengar Way > C1');
-  await page.locator('#sequenceSelect').selectOption({ label: '213 — Mock Quiet Pranayama' });
+  await page.locator('#sequenceSelect').selectOption({ label: 'Mock Quiet Pranayama · Yoga The Iyengar Way > C1 · #103' });
   await expect(page.locator('#activeCategoryTitle')).toHaveText('Yoga The Iyengar Way');
   await page.getByRole('button', { name: 'Preview first pose', exact: true }).click();
-  await page.getByRole('button', { name: /start today's practice/i }).click();
+  await page.getByRole('button', { name: /open today's practice/i }).click();
   await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 1/);
   await expect(page.locator('#activeCategoryTitle')).toHaveText('Yoga: A Gem for Women');
   await page.getByRole('button', { name: 'Preview first pose', exact: true }).click();
@@ -186,7 +186,7 @@ test('manual book selection cannot supply the Today practice book label', async 
   await page.locator('#exitCurriculumPracticeBtn').click();
   await page.locator('#manualLibraryPanel > summary').click();
   await page.locator('#categoryFilter').selectOption('Yoga The Iyengar Way > C1');
-  await page.locator('#sequenceSelect').selectOption({ label: '213 — Mock Quiet Pranayama' });
+  await page.locator('#sequenceSelect').selectOption({ label: 'Mock Quiet Pranayama · Yoga The Iyengar Way > C1 · #103' });
   await expect(page.locator('#activeCategoryTitle')).toHaveText('Yoga The Iyengar Way');
 });
 
@@ -286,7 +286,7 @@ test('Curriculum Map preserves the duration dial position on close', async ({ pa
   await page.locator('#historyCloseBtn').click();
   await expect(page.locator('#historyBackdrop')).toBeHidden();
   await expect(dial).toHaveValue('37');
-  await expect(page.locator('#userEmailDisplay')).toBeFocused();
+  await expect(page.locator('#navProgress')).toBeFocused();
 });
 
 test('installed app cold-starts, advances, and reopens with the computer unavailable', async ({ page, context }, testInfo) => {
@@ -320,7 +320,7 @@ test('installed app cold-starts, advances, and reopens with the computer unavail
   await expect(page.locator('#connectionModeDisplay'))
     .toHaveText('Offline');
 
-  await page.getByRole('button', { name: /start today's practice/i }).click();
+  await page.getByRole('button', { name: /open today's practice/i }).click();
   await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 1/);
   await expect(page.locator('#practiceWorkspace')).toBeVisible();
 
@@ -331,10 +331,10 @@ test('installed app cold-starts, advances, and reopens with the computer unavail
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await expect(page.locator('#mainAppContainer')).toBeVisible({ timeout: 10_000 });
-  await page.getByRole('button', { name: /start today's practice/i }).click();
+  await page.getByRole('button', { name: /open today's practice/i }).click();
   await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 2/);
 
-  await page.locator('#userEmailDisplay').click();
+  await page.locator('#navProgress').click();
   await page.locator('#histTabCurriculum').click();
   await expect(page.getByTestId('curriculum-map')).toBeVisible();
   await expect(page.locator('.cr-summary')).toContainText('1 of 7 practices');

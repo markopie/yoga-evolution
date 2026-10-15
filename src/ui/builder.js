@@ -760,6 +760,7 @@ function openEditCourse() {
 }
 
 function builderOpen(mode, seq) {
+    builderState.opener = document.activeElement;
 
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     
