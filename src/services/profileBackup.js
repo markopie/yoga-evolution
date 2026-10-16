@@ -16,7 +16,7 @@ async function privateRows(table, userId) {
 }
 
 export async function exportProfileBackup(userId = window.currentUserId) {
-    if (!navigator.onLine || !supabase) throw new Error('An internet connection is required to export your latest progress.');
+    if (!supabase) throw new Error('The profile service is not configured.');
     const profile = readProfiles().find((item) => item.id === userId);
     if (!profile) throw new Error('Open a profile before exporting.');
     const { data: auth, error: authError } = await supabase.auth.getUser();

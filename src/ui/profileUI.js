@@ -133,14 +133,28 @@ export async function setupProfileUI() {
     byId('dismissProfileBackupNoticeBtn')?.addEventListener('click', dismissBackupNotice);
 
     const createProfile = async (name, backup = null) => {
-        if (!supabase) throw new Error('The profile service is not configured.');
+        if (!supabase || !supabaseConfig) throw new Error('The profile service is not configured.');
         const { data: previous } = await supabase.auth.getSession();
         changingProfile = true;
         let newSession;
         try {
-            const { data, error } = await supabase.auth.signInAnonymously({ options: { data: { display_name: name } } });
-            if (error) throw error;
-            newSession = data.session;
+            const edgeUrl = `${supabaseConfig.url}/functions/v1/create-anonymous-profile`;
+            const response = await fetch(edgeUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
+                body: JSON.stringify({ display_name: name }),
+            });
+            if (!response.ok) {
+                const errBody = await response.json().catch(() => ({}));
+                throw new Error(errBody.error || `Could not create profile (${response.status})`);
+            }
+            const created = await response.json();
+            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+                email: created.email,
+                password: created.password,
+            });
+            if (signInError) throw signInError;
+            newSession = signInData.session;
             if (backup) {
                 const { error: importError } = await supabase.rpc('import_device_profile', { p_backup: serverProfileBackup(backup) });
                 if (importError) throw importError;
