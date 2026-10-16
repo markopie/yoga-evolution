@@ -4,11 +4,11 @@ import { serverProfileBackup, writeClasses } from '../services/classRecords.js';
 import { supabase, supabaseConfig } from '../services/supabaseClient.js';
 import {
     PROFILES_KEY, SELECTED_PROFILE_KEY, readProfiles, rememberProfile,
-    forgetProfile, renameProfile, liveProfileSession,
+    forgetProfile, renameProfile, liveProfileSession, openProfileOffline, LOST_ACCESS_MESSAGE,
 } from '../services/deviceProfiles.js';
 import { loadCurriculumSnapshot } from '../services/curriculumOffline.js';
 import { syncProfilePreferences } from '../services/profilePreferences.js';
-import { isAuthError } from '../services/authErrorClassification.js';
+import { isNetworkError } from '../services/authErrorClassification.js';
 import { themeManager } from './themeToggle.js';
 import { migrateProfileSequences } from '../services/profileSequenceMigration.js';
 
@@ -71,23 +71,15 @@ export async function setupProfileUI() {
             open.title = `Switch to ${profile.name}`;
             open.addEventListener('click', () => run(async () => {
                 if (!supabase) throw new Error('The profile service is not configured.');
-                let online = true;
                 try {
                     const { data, error } = await supabase.auth.setSession(profile.session || {});
-                    if (error || data?.session?.user?.id !== profile.id) {
-                        throw new Error('This device has lost access to the profile. Import your saved profile file to make a new copy.');
-                    }
+                    if (error) throw error;
+                    if (data?.session?.user?.id !== profile.id) throw new Error(LOST_ACCESS_MESSAGE);
                     const verified = await liveProfileSession(supabase, profile.id);
-                    if (!verified.valid) {
-                        if (verified.error && isAuthError(verified.error)) throw verified.error;
-                        throw new Error('This device has lost access to the profile. Import your saved profile file to make a new copy.');
-                    }
+                    if (!verified.valid) throw verified.error || new Error(LOST_ACCESS_MESSAGE);
                     rememberProfile(data.session);
                 } catch (onlineError) {
-                    if (isAuthError(onlineError)) throw onlineError;
-                    online = false;
-                    const snapshot = await loadCurriculumSnapshot({ userId: profile.id });
-                    if (!snapshot?.nodes?.length) throw new Error(onlineError.message || 'Could not open this profile. Check your internet connection, or import your saved profile file.');
+                    await openProfileOffline(onlineError, profile.id, loadCurriculumSnapshot);
                 }
                 sessionStorage.setItem(SELECTED_PROFILE_KEY, profile.id);
                 sessionStorage.removeItem(PICKER_REQUEST_KEY);
@@ -230,7 +222,7 @@ export async function setupProfileUI() {
             const result = await supabase?.auth.getSession();
             session = result?.data?.session;
         } catch (sessionError) {
-            if (isAuthError(sessionError)) throw sessionError;
+            if (!isNetworkError(sessionError)) throw sessionError;
             online = false;
         }
         // Adopt existing signed-in users without creating a replacement identity.
@@ -256,15 +248,10 @@ export async function setupProfileUI() {
                     return;
                 }
                 const verified = await liveProfileSession(supabase, profile.id);
-                if (!verified.valid) {
-                    if (verified.error && isAuthError(verified.error)) throw verified.error;
-                    throw new Error('Could not open this profile.');
-                }
+                if (!verified.valid) throw verified.error || new Error(LOST_ACCESS_MESSAGE);
             } catch (onlineError) {
-                if (isAuthError(onlineError)) throw onlineError;
+                await openProfileOffline(onlineError, profile.id, loadCurriculumSnapshot);
                 online = false;
-                const snapshot = await loadCurriculumSnapshot({ userId: profile.id });
-                if (!snapshot?.nodes?.length) throw new Error(onlineError.message || 'Could not open this profile. Check your internet connection, or import your saved profile file.');
             }
         } else {
             const snapshot = await loadCurriculumSnapshot({ userId: profile.id });
