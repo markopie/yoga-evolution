@@ -98,20 +98,30 @@ function renderBlankState(title, message, { actionLabel = null, onAction = null 
     if (!workspace) return false;
     workspace.style.display = '';
     window.isBriefingActive = false;
-    workspace.innerHTML = `
-        <div class="grid">
-          <div class="card" style="text-align:center; padding:32px 20px;">
-            <div style="font-size:1.05rem; font-weight:700; margin-bottom:8px;">${title}</div>
-            <div class="muted" style="margin-bottom:16px;">${message}</div>
-            ${actionLabel && onAction
-                ? `<button type="button" id="curriculumBlankRetryBtn">${actionLabel}</button>`
-                : ''}
-          </div>
-        </div>`;
+    workspace.replaceChildren();
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.cssText = 'text-align:center; padding:32px 20px;';
+    const titleEl = document.createElement('div');
+    titleEl.style.cssText = 'font-size:1.05rem; font-weight:700; margin-bottom:8px;';
+    titleEl.textContent = title;
+    const msgEl = document.createElement('div');
+    msgEl.className = 'muted';
+    msgEl.style.cssText = 'margin-bottom:16px;';
+    msgEl.textContent = message;
+    card.append(titleEl, msgEl);
     if (actionLabel && onAction) {
-        const btn = workspace.querySelector('#curriculumBlankRetryBtn');
-        if (btn) btn.addEventListener('click', onAction);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'curriculumBlankRetryBtn';
+        btn.textContent = actionLabel;
+        btn.addEventListener('click', onAction);
+        card.append(btn);
     }
+    grid.append(card);
+    workspace.append(grid);
     return true;
 }
 
@@ -367,11 +377,15 @@ async function loadResolvedSequence(practice) {
             || playableParts.length > 0
             || parts.length === 0;
         if (resolved) break;
-        if (attempt === 0 && !window.appInitialized || window.courses === null || window.courses === undefined) {
-            // Wait for a still-initialising app before retrying.
-            await new Promise(resolve => setTimeout(resolve, 500));
-        } else if (attempt === 0 && typeof window.loadCourses === 'function') {
-            await window.loadCourses().catch(() => {});
+        if (attempt === 0) {
+            const libraryMissing = !window.appInitialized
+                || window.courses === null
+                || window.courses === undefined;
+            if (libraryMissing && typeof window.loadCourses === 'function') {
+                await window.loadCourses().catch(() => {});
+            } else {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
         }
     }
 

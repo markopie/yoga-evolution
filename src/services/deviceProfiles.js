@@ -65,6 +65,7 @@ export async function liveProfileSession(client, expectedUserId) {
     if (!client || !expectedUserId) return { valid: false };
     try {
         const { data, error } = await client.auth.getUser();
-        return { valid: !error && data?.user?.id === expectedUserId, user: data?.user };
-    } catch { return { valid: false }; }
+        if (error) return { valid: false, error };
+        return { valid: data?.user?.id === expectedUserId, user: data?.user };
+    } catch (error) { return { valid: false, error }; }
 }

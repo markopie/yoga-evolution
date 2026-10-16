@@ -1269,7 +1269,22 @@ function wirePracticeButtons() {
             const workspace = document.getElementById('practiceWorkspace');
             if (workspace) {
                 workspace.style.display = '';
-                workspace.innerHTML = `<div class="grid"><div class="card" style="text-align:center; padding:32px 20px;"><div style="font-size:1.05rem; font-weight:700; margin-bottom:8px;">Could not open practice</div><div class="muted" style="margin-bottom:16px;">${error.message || 'Please try again.'}</div></div></div>`;
+                workspace.replaceChildren();
+                const grid = document.createElement('div');
+                grid.className = 'grid';
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.cssText = 'text-align:center; padding:32px 20px;';
+                const titleEl = document.createElement('div');
+                titleEl.style.cssText = 'font-size:1.05rem; font-weight:700; margin-bottom:8px;';
+                titleEl.textContent = 'Could not open practice';
+                const msgEl = document.createElement('div');
+                msgEl.className = 'muted';
+                msgEl.style.cssText = 'margin-bottom:16px;';
+                msgEl.textContent = error.message || 'Please try again.';
+                card.append(titleEl, msgEl);
+                grid.append(card);
+                workspace.append(grid);
             }
         } finally {
             button.disabled = false;
