@@ -1,3 +1,4 @@
+// Profile creation endpoint - called from login screen, no JWT required
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
