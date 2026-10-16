@@ -204,6 +204,41 @@ test('optional curriculum stage does not interrupt completion with a prompt', as
   expect(prompted).toBe(false);
 });
 
+test('Opening a practice from the Progress curriculum roadmap navigates to the practice view', async ({ page }) => {
+  await openProfile(page);
+
+  await page.locator('#navProgress').click();
+  await page.locator('#histTabCurriculum').click();
+  await page.locator('.cr-node-practise').first().click();
+
+  // Regression for e760dc3: direct backdrop manipulation left data-app-view stuck
+  // on "progress", which hides #practiceWorkspace -> blank screen.
+  await expect(page.locator('body')).toHaveAttribute('data-app-view', 'practice');
+  await expect(page.locator('#practiceWorkspace')).toBeVisible();
+  await expect(page.locator('body')).not.toHaveClass('modal-open');
+  await expect(page.locator('#curriculumPracticeSummary')).toContainText(/Week 1 [·,] Day 1/);
+
+  // Briefing card with both actions.
+  const startBtn = page.getByRole('button', { name: /^start practice$/i });
+  const previewBtn = page.getByRole('button', { name: /preview first pose/i });
+  await expect(startBtn).toBeVisible();
+  await expect(previewBtn).toBeVisible();
+
+  // Dismiss the fullscreen briefing overlay so header navigation is reachable.
+  await previewBtn.click();
+
+  // Normal Progress navigation still works.
+  await page.locator('#navProgress').click();
+  await expect(page.locator('body')).toHaveAttribute('data-app-view', 'progress');
+  await expect(page.locator('#historyBackdrop')).toBeVisible();
+  await page.locator('#histTabCurriculum').click();
+  await expect(page.locator('.cr-summary')).toBeVisible();
+
+  // Manual practice selection still works.
+  await page.locator('#navPractice').click();
+  await expect(page.locator('body')).toHaveAttribute('data-app-view', 'practice');
+});
+
 test('Curriculum Map opens, renders summary/counts, and stations have forgiving hit targets', async ({ page }) => {
   await openProfile(page);
 

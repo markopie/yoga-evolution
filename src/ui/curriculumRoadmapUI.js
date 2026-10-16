@@ -1241,10 +1241,18 @@ function wirePracticeButtons() {
             if (typeof window.startTodayPractice !== 'function') {
                 throw new Error('The curriculum practice flow is unavailable.');
             }
-            const progressBackdrop = body.closest('#historyBackdrop');
-            if (progressBackdrop) {
-                progressBackdrop.style.display = 'none';
-                document.body.classList.remove('modal-open');
+            // appNavigation owns view switching. Leaving the embedded Progress
+            // screen must go through navigateApp so body.dataset.appView flips
+            // to 'practice'; direct display manipulation leaves the workspace
+            // hidden by the progress-view CSS (blank screen regression in e760dc3).
+            const embeddedInProgress = Boolean(body.closest('#historyBackdrop'));
+            if (embeddedInProgress) {
+                if (typeof window.navigateApp !== 'function') {
+                    throw new Error('Navigation is unavailable.');
+                }
+                if (!window.navigateApp('practice')) {
+                    throw new Error('Could not leave the Progress screen.');
+                }
             } else {
                 closeCurriculumRoadmap();
             }
