@@ -1,6 +1,6 @@
 import { builderState } from '../store/builderState.js';
 import { getTargetInsertionIndex, clearBuilderSelection } from './builder.js';
-import { $, showError, safeListen, normaliseText, setStatus } from '../utils/dom.js';
+import { $, showError, safeListen, normaliseText, setStatus, enableModalClose } from '../utils/dom.js';
 import { prefersIAST, setIASTPref, formatHMS, displayName } from '../utils/format.js';
 import { normalizePlate } from '../services/dataAdapter.js';
 import { playbackEngine } from '../playback/timer.js';
@@ -598,6 +598,12 @@ function setupBuilderWiring() {
 
     safeListen("editCourseCloseBtn", "click", closeBuilderModal);
     safeListen("editCourseCancelBtn", "click", closeBuilderModal);
+
+    enableModalClose('editCourseBackdrop', { onClose: closeBuilderModal });
+    enableModalClose('asanaEditorBackdrop');
+    enableModalClose('linkSequenceOverlay');
+    enableModalClose('repetitionModalOverlay');
+    enableModalClose('rowSearchOverlay', { onClose: () => window._closeInjectionSearch?.() });
 }
 
 // ── 4. UI Extras (IAST, History) ─────────────────────────────────────────────

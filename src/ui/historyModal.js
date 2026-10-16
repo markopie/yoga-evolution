@@ -136,7 +136,7 @@ async function openHistoryModal(defaultTab = null, { clearPracticeOnClose = fals
         const completedTitle = completedPractice?.title || '';
         const sourceLabel = completedPractice?.sourceType === 'curriculum' ? 'Curriculum sequence' : 'Manual practice';
         completionNotice.hidden = !completedTitle;
-        const ratingText = completedPractice?.rating ? ` · Rating: ${completedPractice.rating}/5` : '';
+        const ratingText = completedPractice?.rating ? ` · Rating: ${completedPractice.rating}/4` : '';
         completionNotice.textContent = completedTitle
             ? `Completed ${sourceLabel}: ${completedTitle}${ratingText}`
             : '';

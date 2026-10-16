@@ -1,3 +1,5 @@
+import { isNetworkError } from './authErrorClassification.js';
+
 const env = import.meta.env || {};
 export const PROFILE_NAMESPACE = env.VITE_BROWSER_TEST_MOCKS === '1'
     ? 'browser-test' : (env.VITE_SUPABASE_TARGET || 'local');
@@ -65,6 +67,19 @@ export async function liveProfileSession(client, expectedUserId) {
     if (!client || !expectedUserId) return { valid: false };
     try {
         const { data, error } = await client.auth.getUser();
-        return { valid: !error && data?.user?.id === expectedUserId, user: data?.user };
-    } catch { return { valid: false }; }
+        if (error) return { valid: false, error };
+        return { valid: data?.user?.id === expectedUserId, user: data?.user };
+    } catch (error) { return { valid: false, error }; }
+}
+
+export const LOST_ACCESS_MESSAGE = 'This device has lost access to the profile. Import your saved profile file to make a new copy.';
+
+// Cached data may only stand in for the server when the server was unreachable;
+// any other failure (expired, revoked, mismatched, unknown) must stay refused.
+export async function openProfileOffline(error, userId, loadSnapshot) {
+    if (!isNetworkError(error)) throw new Error(LOST_ACCESS_MESSAGE, { cause: error });
+    const snapshot = await loadSnapshot({ userId });
+    if (!snapshot?.nodes?.length) {
+        throw new Error('Could not open this profile. Check your internet connection, or import your saved profile file.', { cause: error });
+    }
 }

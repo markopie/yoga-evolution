@@ -109,6 +109,24 @@ test('bad profile files leave saved profiles unchanged', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Alice', exact: true })).toBeVisible();
 });
 
+test('a revoked profile session is refused instead of opening from the offline copy', async ({ page }) => {
+    await createProfile(page, 'Revoked profile');
+    await page.locator('#settingsToggleButton').click();
+    await page.locator('#signOutBtn').click();
+    await expect(page.locator('#loginScreen')).toHaveAttribute('data-ready', 'true');
+    await page.evaluate(() => {
+        const key = 'yoga-browser-test-state';
+        const state = JSON.parse(localStorage.getItem(key) || '{}');
+        localStorage.setItem(key, JSON.stringify({ ...state, mockSessions: [] }));
+    });
+    await page.reload();
+    await expect(page.locator('#loginScreen')).toHaveAttribute('data-ready', 'true');
+    await page.getByRole('button', { name: 'Revoked profile', exact: true }).click();
+    await expect(page.locator('#profileMessage')).toContainText('lost access');
+    await expect(page.locator('#mainAppContainer')).toBeHidden();
+    expect(await page.evaluate(() => window.currentUserId ?? null)).toBeNull();
+});
+
 test('another browser cannot discover profiles from this browser', async ({ page, browser }) => {
     await createProfile(page, 'Private profile');
     const otherContext = await browser.newContext();

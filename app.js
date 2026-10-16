@@ -128,6 +128,28 @@ window.loadCourses = async function() {
         }
     } catch (err) {
         console.error("Failed to load courses:", err);
+        const select = document.getElementById('sequenceSelect');
+        if (select) {
+            select.innerHTML = '<option value="">Could not load sequences</option>';
+        }
+        const actions = document.getElementById('sequenceActions');
+        if (actions && !document.getElementById('courseLoadError')) {
+            const msg = document.createElement('p');
+            msg.id = 'courseLoadError';
+            msg.style.cssText = 'color:#c0392b; font-size:0.85rem; margin:8px 0;';
+            msg.textContent = 'Could not load your sequences. Check your connection.';
+            const retry = document.createElement('button');
+            retry.type = 'button';
+            retry.className = 'tiny';
+            retry.textContent = 'Reload';
+            retry.style.marginLeft = '8px';
+            retry.addEventListener('click', () => {
+                msg.remove();
+                retry.remove();
+                void window.loadCourses();
+            });
+            actions.before(msg, retry);
+        }
     }
 };
 // #endregion
@@ -181,7 +203,7 @@ function clearProgress() {
 function showResumePrompt(state) {
     const banner = document.createElement("div");
     banner.id = "resumeBanner";
-    banner.style.cssText = `position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 12px 20px; border-radius: 30px; z-index: 9999; box-shadow: 0 4px 15px rgba(0,0,0,0.3); display: flex; gap: 15px; align-items: center; font-size: 14px;`;
+    banner.className = "resume-banner";
 
     const resolved = resolveResumeCourse(window.courses, state);
     const seq = resolved.course;
@@ -202,7 +224,7 @@ function showResumePrompt(state) {
     }
 
     const resumeLabel = isCurriculumResume ? 'Resume' : 'Resume manual practice';
-    banner.innerHTML = `<span>${resumeLabel}: <b>${seqName}</b> at <b>${poseName}</b>?</span><button id="resumeYes" style="background:#4CAF50; color:white; border:none; padding:5px 12px; border-radius:15px; cursor:pointer;">Yes</button><button id="resumeNo" style="background:transparent; color:#ccc; border:none; cursor:pointer;">✕</button>`;
+    banner.innerHTML = `<span>${resumeLabel}: <b>${seqName}</b> at <b>${poseName}</b>?</span><button id="resumeYes" class="resume-banner__resume-btn">Yes</button><button id="resumeNo" class="resume-banner__close-btn">✕</button>`;
     document.body.appendChild(banner);
 
     banner.querySelector("#resumeYes").onclick = () => {
@@ -263,25 +285,42 @@ async function init() {
     window.appInitialized = true;
     const statusEl = $("statusText");
     const loadText = $("loadingText");
+    const loadingOverlay = document.getElementById('appLoadingOverlay');
+    const loadingStep = document.getElementById('appLoadingStep');
+    const loadingError = document.getElementById('appLoadingError');
+    const loadingRetry = document.getElementById('appLoadingRetry');
+
+    const setStep = (text) => {
+        if (statusEl) statusEl.textContent = text;
+        if (loadingStep) loadingStep.textContent = text;
+    };
+    const hideOverlay = () => { if (loadingOverlay) loadingOverlay.style.display = 'none'; };
+    const showOverlayError = (msg) => {
+        if (loadingStep) loadingStep.textContent = '';
+        if (loadingError) { loadingError.textContent = msg; loadingError.hidden = false; }
+        if (loadingRetry) loadingRetry.hidden = false;
+    };
+
+    if (loadingOverlay) loadingOverlay.style.display = 'flex';
 
     try {
         themeManager.init(window.currentUserId);
         if (typeof seedManualCompletionsOnce === "function") seedManualCompletionsOnce();
 
-        if (statusEl) statusEl.textContent = "Loading library...";
+        setStep("Loading library…");
         window.asanaLibrary = await loadAsanaLibrary();
 
         // 🌟 HYDRATE PROPS: Ensure custom props are loaded from DB before sequences
         await hydratePropsFromDb(supabase);
 
-        if (statusEl) statusEl.textContent = "Loading courses...";
+        setStep("Loading courses…");
         await window.loadCourses();
         void refreshCurriculumSnapshot({ userId: window.currentUserId }).catch(err =>
             console.warn("[Offline] Curriculum snapshot refresh failed:", err.message));
         void flushCompletionQueue().catch(err => console.warn("Offline completion replay failed:", err));
         void fetchServerHistory().catch(err => console.warn("History preload failed:", err));
 
-        if (statusEl) statusEl.textContent = "Initializing player...";
+        setStep("Initializing player…");
         await Promise.all([
             import("./src/playback/timerEvents.js"),
             import("./src/ui/posePlayer.js"),
@@ -294,8 +333,9 @@ async function init() {
         setupCurriculumRoadmapUI();
         if (typeof updateDialUI === 'function') window.updateDialUI();
 
-        if (statusEl) statusEl.textContent = "Ready";
+        setStep("Ready");
         if (loadText) loadText.textContent = "Select a course";
+        hideOverlay();
 
         const state = safeGetLocalStorage(resumeStateKey(), null);
         const fourHours = 4 * 60 * 60 * 1000;
@@ -308,6 +348,7 @@ async function init() {
     } catch (err) {
         console.error("Init Error:", err);
         if (statusEl) statusEl.textContent = "Error loading app data";
+        showOverlayError("Could not load the app. Check your internet connection and try again.");
     }
 }
 
@@ -629,7 +670,36 @@ const setupRatingButtons = async () => {
         });
     } catch (err) {
         console.error("[setupRatingButtons] Failed to load rating options:", err);
-        container.innerHTML = `<div class="rating-overlay__error">Rating options could not be loaded.</div>`;
+        container.innerHTML = `
+            <div class="rating-overlay__error">Rating options could not be loaded.</div>
+            <div class="rating-overlay__error-actions">
+                <button type="button" class="rating-overlay__retry-btn">Try again</button>
+                <button type="button" class="rating-overlay__skip-btn">Skip rating</button>
+            </div>
+        `;
+        container.querySelector('.rating-overlay__retry-btn')?.addEventListener('click', () => {
+            container.innerHTML = '<div class="rating-overlay__loading">Loading rating options…</div>';
+            void setupRatingButtons();
+        });
+        container.querySelector('.rating-overlay__skip-btn')?.addEventListener('click', () => {
+            overlay.style.display = 'none';
+            const shouldReset = overlay.dataset.resetAfterRating !== "false";
+            const afterRatingAction = overlay.dataset.afterRatingAction || "";
+            delete overlay.dataset.sessionId;
+            delete overlay.dataset.afterRatingAction;
+            delete overlay.dataset.resetAfterRating;
+            if (afterRatingAction === "startTodayPractice") {
+                window.exitCurriculumPractice?.();
+                if (typeof window.openCurriculumRoadmap === "function") {
+                    void window.openCurriculumRoadmap();
+                }
+            } else if (shouldReset) {
+                document.getElementById("resetBtn")?.click();
+            } else if (afterRatingAction === "openHistory" && typeof window.openHistoryModal === "function") {
+                void window.openHistoryModal('current', { clearPracticeOnClose: true });
+                window.clearActivePracticeAfterCompletion?.();
+            }
+        });
     }
 };
 
@@ -698,9 +768,11 @@ if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
         setupRatingButtons();
         setupCompletionRecoveryControls();
+        document.getElementById('appLoadingRetry')?.addEventListener('click', () => window.init());
     });
 } else {
     setupRatingButtons();
     setupCompletionRecoveryControls();
+    document.getElementById('appLoadingRetry')?.addEventListener('click', () => window.init());
 }
 // #endregion

@@ -76,10 +76,9 @@ function intensityLabel(band) {
 function ratingMeta(r) {
     return {
         1: { label: 'Too Much',       subtitle: 'Heavy' },
-        2: { label: 'Challenging',    subtitle: 'Effortful' },
-        3: { label: 'Balanced',       subtitle: 'Right level' },
-        4: { label: 'Comfortable',    subtitle: 'Fluid' },
-        5: { label: 'Ready for More', subtitle: 'Strong' },
+        2: { label: 'Hard',            subtitle: 'Effortful' },
+        3: { label: 'Steady',          subtitle: 'Right level' },
+        4: { label: 'Good',            subtitle: 'Ready for more' },
     }[r] || null;
 }
 
@@ -1235,25 +1234,61 @@ function wirePracticeButtons() {
         const nodeId = button.getAttribute('data-curriculum-node-id');
         if (!nodeId || button.disabled) return;
 
+        const originalLabel = button.textContent || 'Practise';
         button.disabled = true;
         button.textContent = 'Loading…';
-        const progressBackdrop = body.closest('#historyBackdrop');
-        if (progressBackdrop) {
-            progressBackdrop.style.display = 'none';
-            document.body.classList.remove('modal-open');
-        } else {
-            closeCurriculumRoadmap();
-        }
         try {
             if (typeof window.startTodayPractice !== 'function') {
                 throw new Error('The curriculum practice flow is unavailable.');
             }
+            // appNavigation owns view switching. Leaving the embedded Progress
+            // screen must go through navigateApp so body.dataset.appView flips
+            // to 'practice'; direct display manipulation leaves the workspace
+            // hidden by the progress-view CSS (blank screen regression in e760dc3).
+            const embeddedInProgress = Boolean(body.closest('#historyBackdrop'));
+            if (embeddedInProgress) {
+                if (typeof window.navigateApp !== 'function') {
+                    throw new Error('Navigation is unavailable.');
+                }
+                if (!window.navigateApp('practice')) {
+                    throw new Error('Could not leave the Progress screen.');
+                }
+            } else {
+                closeCurriculumRoadmap();
+            }
             await window.startTodayPractice(nodeId);
+            const sequence = window.currentSequence || null;
+            const practiceOpen = sequence || window.currentCurriculumPractice;
+            const workspace = document.getElementById('practiceWorkspace');
+            const workspaceVisible = workspace && workspace.style.display !== 'none';
+            if (!practiceOpen || !workspaceVisible) {
+                throw new Error('The practice did not open. Please try again.');
+            }
         } catch (error) {
             console.error('[curriculumRoadmapUI] Failed to open selected practice:', error);
+            const workspace = document.getElementById('practiceWorkspace');
+            if (workspace) {
+                workspace.style.display = '';
+                workspace.replaceChildren();
+                const grid = document.createElement('div');
+                grid.className = 'grid';
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.cssText = 'text-align:center; padding:32px 20px;';
+                const titleEl = document.createElement('div');
+                titleEl.style.cssText = 'font-size:1.05rem; font-weight:700; margin-bottom:8px;';
+                titleEl.textContent = 'Could not open practice';
+                const msgEl = document.createElement('div');
+                msgEl.className = 'muted';
+                msgEl.style.cssText = 'margin-bottom:16px;';
+                msgEl.textContent = error.message || 'Please try again.';
+                card.append(titleEl, msgEl);
+                grid.append(card);
+                workspace.append(grid);
+            }
         } finally {
             button.disabled = false;
-            button.textContent = 'Practise';
+            button.textContent = originalLabel;
         }
     });
 }
