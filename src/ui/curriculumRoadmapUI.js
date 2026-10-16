@@ -1234,25 +1234,38 @@ function wirePracticeButtons() {
         const nodeId = button.getAttribute('data-curriculum-node-id');
         if (!nodeId || button.disabled) return;
 
+        const originalLabel = button.textContent || 'Practise';
         button.disabled = true;
         button.textContent = 'Loading…';
-        const progressBackdrop = body.closest('#historyBackdrop');
-        if (progressBackdrop) {
-            progressBackdrop.style.display = 'none';
-            document.body.classList.remove('modal-open');
-        } else {
-            closeCurriculumRoadmap();
-        }
         try {
             if (typeof window.startTodayPractice !== 'function') {
                 throw new Error('The curriculum practice flow is unavailable.');
             }
+            const progressBackdrop = body.closest('#historyBackdrop');
+            if (progressBackdrop) {
+                progressBackdrop.style.display = 'none';
+                document.body.classList.remove('modal-open');
+            } else {
+                closeCurriculumRoadmap();
+            }
             await window.startTodayPractice(nodeId);
+            const sequence = window.currentSequence || null;
+            const practiceOpen = sequence || window.currentCurriculumPractice;
+            const workspace = document.getElementById('practiceWorkspace');
+            const workspaceVisible = workspace && workspace.style.display !== 'none';
+            if (!practiceOpen || !workspaceVisible) {
+                throw new Error('The practice did not open. Please try again.');
+            }
         } catch (error) {
             console.error('[curriculumRoadmapUI] Failed to open selected practice:', error);
+            const workspace = document.getElementById('practiceWorkspace');
+            if (workspace) {
+                workspace.style.display = '';
+                workspace.innerHTML = `<div class="grid"><div class="card" style="text-align:center; padding:32px 20px;"><div style="font-size:1.05rem; font-weight:700; margin-bottom:8px;">Could not open practice</div><div class="muted" style="margin-bottom:16px;">${error.message || 'Please try again.'}</div></div></div>`;
+            }
         } finally {
             button.disabled = false;
-            button.textContent = 'Practise';
+            button.textContent = originalLabel;
         }
     });
 }
