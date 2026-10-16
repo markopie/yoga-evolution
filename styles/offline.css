@@ -170,6 +170,78 @@
 .settings-switch-profile:hover { background: var(--color-bg-hover); }
 .settings-section h3 { margin: 14px 0 8px; font-size: .9rem; }
 
+#profileSettingsPanel {
+    color: var(--color-text-primary, #1f2933);
+    background: var(--color-bg-surface, #ffffff);
+}
+
+#profileSettingsPanel h2 {
+    margin-bottom: 16px;
+    font-size: 1.15rem;
+    letter-spacing: -0.01em;
+}
+
+#profileSettingsPanel .profile-name-form {
+    margin: 0;
+    padding: 14px;
+    border: 1px solid var(--color-border, #d8dee4);
+    border-radius: 12px;
+    background: var(--color-bg-tertiary, #f5f7f8);
+}
+
+#profileSettingsPanel .profile-name-form label {
+    color: var(--color-text-secondary, #52606d);
+    font-size: .8rem;
+    font-weight: 650;
+}
+
+#profileSettingsPanel #profileSettingsMessage {
+    min-height: 1.3em;
+    margin: 8px 2px 0;
+    color: var(--color-text-secondary, #52606d);
+    font-size: .82rem;
+}
+
+#profileSettingsPanel > #exportProfileBtn {
+    margin-top: 14px;
+    border-color: var(--color-accent-primary, #007aff);
+    color: var(--color-text-primary, #1f2933);
+    font-weight: 650;
+}
+
+#profileSettingsPanel:has(#profileBackupNotice:not([hidden])) > #exportProfileBtn {
+    display: none;
+}
+
+#profileSettingsPanel .profile-backup-notice {
+    margin: 14px 0 0;
+    padding: 16px;
+    border-radius: 12px;
+}
+
+#profileSettingsPanel .profile-backup-notice strong {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--color-text-primary, #1f2933);
+    font-size: 1rem;
+}
+
+#profileSettingsPanel .profile-backup-notice p {
+    margin: 0 0 14px;
+    line-height: 1.5;
+}
+
+#profileSettingsPanel .profile-backup-notice__actions button {
+    flex: 1 1 150px;
+}
+
+#profileSettingsPanel > p:last-child {
+    margin: 14px 2px 0;
+    color: var(--color-text-secondary, #52606d);
+    font-size: .8rem;
+    line-height: 1.5;
+}
+
 .settings-form {
     display: grid;
     grid-template-columns: repeat(3, minmax(140px, 1fr)) auto;
