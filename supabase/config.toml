@@ -77,9 +77,6 @@ verify_jwt = false
 [functions.account-recovery-complete]
 verify_jwt = false
 
-[functions.create-anonymous-profile]
-verify_jwt = false
-
 [analytics]
 enabled = true
 port = 55427

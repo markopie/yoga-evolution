@@ -35,22 +35,16 @@ export async function setupProfileUI() {
     };
     let busy = false;
     let changingProfile = false;
-    const submitBtn = byId('createProfileBtn') || byId('createProfileForm')?.querySelector('button[type="submit"]');
     const run = async (operation) => {
         if (busy) return;
         busy = true;
         byId('profileControls').disabled = true;
-        if (submitBtn) { submitBtn.dataset.originalText = submitBtn.textContent; submitBtn.textContent = 'Creating…'; }
         showMessage();
         try { await operation(); }
-        catch (error) {
-            const msg = error?.message || 'Could not open this profile. Please try again.';
-            showMessage(msg.startsWith('Could not create profile') || msg.startsWith('The profile service') ? msg : 'Could not open this profile. Check your connection and try again.');
-        }
+        catch (error) { showMessage(error.message || 'Could not open this profile. Please try again.'); }
         finally {
             busy = false;
             byId('profileControls').disabled = false;
-            if (submitBtn && submitBtn.dataset.originalText) submitBtn.textContent = submitBtn.dataset.originalText;
         }
     };
     const reloadToPicker = () => {
@@ -142,28 +136,14 @@ export async function setupProfileUI() {
     byId('dismissProfileBackupNoticeBtn')?.addEventListener('click', dismissBackupNotice);
 
     const createProfile = async (name, backup = null) => {
-        if (!supabase || !supabaseConfig) throw new Error('The profile service is not configured.');
+        if (!navigator.onLine || !supabase) throw new Error('An internet connection is required to create or import a profile.');
         const { data: previous } = await supabase.auth.getSession();
         changingProfile = true;
         let newSession;
         try {
-            const edgeUrl = `${supabaseConfig.url}/functions/v1/create-anonymous-profile`;
-            const response = await fetch(edgeUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}` },
-                body: JSON.stringify({ display_name: name }),
-            });
-            if (!response.ok) {
-                const errBody = await response.json().catch(() => ({}));
-                throw new Error(errBody.error || `Could not create profile (${response.status})`);
-            }
-            const created = await response.json();
-            const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-                email: created.email,
-                password: created.password,
-            });
-            if (signInError) throw signInError;
-            newSession = signInData.session;
+            const { data, error } = await supabase.auth.signInAnonymously({ options: { data: { display_name: name } } });
+            if (error) throw error;
+            newSession = data.session;
             if (backup) {
                 const { error: importError } = await supabase.rpc('import_device_profile', { p_backup: serverProfileBackup(backup) });
                 if (importError) throw importError;
