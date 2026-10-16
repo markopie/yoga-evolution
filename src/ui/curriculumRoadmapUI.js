@@ -76,10 +76,9 @@ function intensityLabel(band) {
 function ratingMeta(r) {
     return {
         1: { label: 'Too Much',       subtitle: 'Heavy' },
-        2: { label: 'Challenging',    subtitle: 'Effortful' },
-        3: { label: 'Balanced',       subtitle: 'Right level' },
-        4: { label: 'Comfortable',    subtitle: 'Fluid' },
-        5: { label: 'Ready for More', subtitle: 'Strong' },
+        2: { label: 'Hard',            subtitle: 'Effortful' },
+        3: { label: 'Steady',          subtitle: 'Right level' },
+        4: { label: 'Good',            subtitle: 'Ready for more' },
     }[r] || null;
 }
 

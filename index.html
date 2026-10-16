@@ -72,6 +72,15 @@
     </div>
   </div>
 
+  <div id="appLoadingOverlay" class="app-loading-overlay" style="display:none;">
+    <div class="app-loading-card">
+      <div class="app-loading-spinner" aria-hidden="true"></div>
+      <p id="appLoadingStep" class="app-loading-step" role="status">Loading…</p>
+      <p id="appLoadingError" class="app-loading-error" hidden></p>
+      <button id="appLoadingRetry" type="button" class="app-loading-retry" hidden>Try again</button>
+    </div>
+  </div>
+
   <div id="mainAppContainer" style="display:none;">
     <header>
        <div class="row" style="display:flex; justify-content:space-between; align-items:center;">
@@ -144,6 +153,7 @@
                      <span style="opacity: 0.6; font-size: 0.8rem;">Default</span>
                      <span>Longest</span>
                    </div>
+                   <div id="durationDialValue" style="display:none; font-size:0.75rem; font-weight:600; color:#0f6b66; text-align:center; margin-top:2px;"></div>
                  </div>
                </div>
 
@@ -542,9 +552,9 @@
 
   <div id="transitionOverlay" style="display:none;">
     <div class="transition-msg">Prepare for the next pose</div>
-    <div class="transition-countdown" id="transitionCountdown">15</div>
+    <div class="transition-countdown"><span id="transitionCountdown">15</span> <span class="transition-countdown__unit">seconds</span></div>
     <div class="transition-next" id="transitionNextPose"></div>
-    <button id="transitionSkipBtn" type="button">Skip</button>
+    <button id="transitionSkipBtn" type="button" class="transition-skip-btn">Skip</button>
   </div>
 
  <div id="focusOverlay" style="display:none;">
@@ -553,15 +563,15 @@
      <div id="focusTotalTime"></div>
    </div>
    
-   <div id="focusTimer">00:00</div>
+   <div id="focusTimer" role="timer" aria-live="off">00:00</div>
    <div id="focusPoseLabel" style="font-size:1.0rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:#86868b; display:none; margin-bottom:12px; border: 1.5px solid #d2d2d7; padding: 4px 14px; border-radius: 20px; background: #f5f5f7; width: fit-content; text-align:center;"></div>
-   <div id="focusPoseName"></div>
+   <h2 id="focusPoseName" class="focus-pose-name"></h2>
    
    <div id="focusImageWrap"></div>
  
-   <button id="focusPauseBtn">PAUSE</button>
+   <button id="focusPauseBtn" aria-label="Pause practice">PAUSE</button>
 
-   <button id="activePoseSkipBtn" style="display:none; margin-top: 20px; background: #ffffff; border: 2px solid #d2d2d7; color: #1d1d1f; padding: 10px 24px; border-radius: 30px; font-weight: 700; font-size: 0.95rem; cursor: pointer; opacity: 1 !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: all 0.2s ease;">
+   <button id="activePoseSkipBtn" aria-label="Skip to next pose" style="display:none; margin-top: 20px; background: #ffffff; border: 2px solid #d2d2d7; color: #1d1d1f; padding: 12px 28px; border-radius: 30px; font-weight: 700; font-size: 1rem; cursor: pointer; opacity: 1 !important; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: all 0.2s ease;">
    ⏭️ SKIP
 </button>
    

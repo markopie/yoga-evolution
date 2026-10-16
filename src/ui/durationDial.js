@@ -89,10 +89,24 @@ export function updateDialUI() {
 
     const pos = getDialPosition();
 
-    // Visual feedback only: toggle classes based on position
     if (wrap) {
         wrap.classList.toggle("dial-faster", pos > 50);
         wrap.classList.toggle("dial-slower", pos < 50);
+    }
+
+    const dialValueEl = document.getElementById('durationDialValue');
+    if (dialValueEl && window.currentSequence) {
+        const list = window.activePlaybackList || [];
+        const idx = window.currentIndex || 0;
+        if (list[idx] && !String(list[idx][0] || '').startsWith('MACRO:')) {
+            const secs = Number(list[idx][1]) || 0;
+            dialValueEl.textContent = secs ? `${secs}s per pose` : '';
+            dialValueEl.style.display = secs ? '' : 'none';
+        } else {
+            dialValueEl.style.display = 'none';
+        }
+    } else if (dialValueEl) {
+        dialValueEl.style.display = 'none';
     }
 }
 

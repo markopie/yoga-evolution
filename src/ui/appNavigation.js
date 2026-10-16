@@ -78,6 +78,8 @@ export function setupAppNavigation() {
     });
     window.addEventListener('yoga:practice-changed', () => {
         document.body.classList.remove('library-view'); window.refreshPracticeNavigation();
+        const settings = document.getElementById('appSettingsPanel');
+        if (settings) settings.open = false;
     });
     let activeProfile = window.currentUserId;
     window.addEventListener('yoga:verified-session', () => {

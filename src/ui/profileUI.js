@@ -35,14 +35,23 @@ export async function setupProfileUI() {
     };
     let busy = false;
     let changingProfile = false;
+    const submitBtn = byId('createProfileBtn') || byId('createProfileForm')?.querySelector('button[type="submit"]');
     const run = async (operation) => {
         if (busy) return;
         busy = true;
         byId('profileControls').disabled = true;
+        if (submitBtn) { submitBtn.dataset.originalText = submitBtn.textContent; submitBtn.textContent = 'Creating…'; }
         showMessage();
         try { await operation(); }
-        catch (error) { showMessage(error.message || 'Could not open this profile. Please try again.'); }
-        finally { busy = false; byId('profileControls').disabled = false; }
+        catch (error) {
+            const msg = error?.message || 'Could not open this profile. Please try again.';
+            showMessage(msg.startsWith('Could not create profile') || msg.startsWith('The profile service') ? msg : 'Could not open this profile. Check your connection and try again.');
+        }
+        finally {
+            busy = false;
+            byId('profileControls').disabled = false;
+            if (submitBtn && submitBtn.dataset.originalText) submitBtn.textContent = submitBtn.dataset.originalText;
+        }
     };
     const reloadToPicker = () => {
         window.saveCurrentProgress?.();

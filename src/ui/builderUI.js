@@ -113,7 +113,7 @@ export async function downloadSequencePdf(button = document.getElementById('btnD
             triggerBlobDownload(download.blob, download.filename);
         } catch (error) {
             console.error('[PDF] Sequence export failed:', error);
-            alert(pdfErrorMessage(error));
+            showPdfExportError(button, pdfErrorMessage(error));
             throw error;
         }
     });
@@ -131,9 +131,22 @@ export async function downloadClassPdf(course, cover, button) {
             triggerBlobDownload(download.blob, download.filename);
         } catch (error) {
             console.error('[PDF] Class export failed:', error);
-            alert(pdfErrorMessage(error));
+            showPdfExportError(button, pdfErrorMessage(error));
         }
     });
+}
+
+function showPdfExportError(button, message) {
+    let status = document.getElementById('pdfExportStatus');
+    if (!status) {
+        status = document.createElement('p');
+        status.id = 'pdfExportStatus';
+        status.style.cssText = 'color:#c0392b; font-size:0.85rem; margin:8px 0; padding:0;';
+        button?.parentNode?.appendChild(status);
+    }
+    status.textContent = message;
+    status.style.display = 'block';
+    setTimeout(() => { status.style.display = 'none'; }, 5000);
 }
 
 
