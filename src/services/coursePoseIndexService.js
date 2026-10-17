@@ -4,11 +4,10 @@ import { normalisePoseId } from '../utils/poseId.js';
 const MAX_POSE_FILTER_IDS = 20;
 
 export function parsePoseFilterIds(raw) {
-    if (Array.isArray(raw)) {
-        return [...new Set(raw.map(normalisePoseId).filter(Boolean))].slice(0, MAX_POSE_FILTER_IDS);
-    }
-    const tokens = String(raw ?? '').split(',');
-    return [...new Set(tokens.map(normalisePoseId).filter(Boolean))].slice(0, MAX_POSE_FILTER_IDS);
+    const tokens = Array.isArray(raw) ? raw : String(raw ?? '').split(',');
+    return [...new Set(tokens
+        .map(token => normalisePoseId(String(token).trim().replace(/^#+/, '')))
+        .filter(Boolean))].slice(0, MAX_POSE_FILTER_IDS);
 }
 
 export async function fetchCourseIdsByPoseIds(poseIds) {

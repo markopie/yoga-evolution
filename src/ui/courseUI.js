@@ -310,11 +310,16 @@ export function renderCourseUI() {
     sel.innerHTML = `<option value="">Choose a sequence</option>`;
 
     const grouped = {};
+    // The pose ID filter is authoritative while active: it searches across all
+    // collections so a stale category/title filter can't silently shrink results.
+    const searchingByPose = poseTargetKey.length > 0;
     courses.forEach((course, idx) => {
-        if (!matchesSequence(course, document.getElementById('sequenceSearch')?.value || '')) return;
         const cat = course.category ? course.category.trim() : "Uncategorized";
-        if (filterVal !== "ALL" && cat !== filterVal) return;
-        if (poseTargetKey) {
+        if (!searchingByPose) {
+            if (!matchesSequence(course, document.getElementById('sequenceSearch')?.value || '')) return;
+            if (filterVal !== "ALL" && cat !== filterVal) return;
+        }
+        if (searchingByPose) {
             const useIndex = poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.ids;
             const fallbackToLocalScan = poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.error;
             const indexLoading = poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.loading;
@@ -360,11 +365,11 @@ export function renderCourseUI() {
         const indexError = poseTargetKey && poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.error;
         const poseLabel = poseTargets.length > 1
             ? `any of poses ${poseTargets.join(', ')}`
-            : `direct pose ${poseTargets[0] || ''}`;
+            : `pose ${poseTargets[0] || ''}`;
         poseStatusEl.textContent = indexLoading
             ? 'Searching matching poses...'
             : poseTargetKey
-            ? `${matchedCount} sequence${matchedCount === 1 ? '' : 's'} contain ${poseLabel}${indexError ? ' (local fallback)' : ''} — see “Choose a sequence” below`
+            ? `${matchedCount} sequence${matchedCount === 1 ? '' : 's'} contain ${poseLabel} across all collections${indexError ? ' (offline scan)' : ''} — see “Choose a sequence” below`
             : '';
     }
 }
