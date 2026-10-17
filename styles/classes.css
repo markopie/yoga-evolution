@@ -15,7 +15,6 @@ body[data-app-view="practice"].library-view #manualLibraryPanel { display:block!
 body.library-view #practicePlaybackControls, body.library-view #practiceWorkspace { display:none!important; }
 #returnToPracticeBtn { display:none; }
 body.library-view #returnToPracticeBtn { display:inline-block; }
-body.library-view #backToLibraryBtn { display:none; }
 #practiceContext { margin:16px 0 0; }
 #practiceContext h2 { font-size:1.15rem; margin:0 0 10px; }
 #practiceContext button { margin-right:8px; }
@@ -80,7 +79,7 @@ button:disabled { cursor:default; opacity:.5; }
 :where(button,input,select,summary,a):focus-visible { outline:3px solid #007aff; outline-offset:3px; }
 .browse-filters label { display:flex; flex-direction:column; gap:5px; font-size:.85rem; }
 .browse-filters input { min-width:0; width:100%; box-sizing:border-box; }
-.browse-library-actions { display:flex; justify-content:flex-end; margin-top:24px; padding-top:16px; border-top:1px solid var(--color-border,#ddd); }
+.browse-library-actions { display:flex; justify-content:flex-end; margin-top:24px; padding-top:16px; border-top:1px solid var(--color-border,#ddd); gap:10px; }
 .browse-library-actions .edit-asana-btn { background:transparent; color:inherit; border:1px solid var(--color-border,#ccc); margin:0; }
 [data-theme="dark"] .class-notice { background:#29292d; }
 @media(min-width:700px) {

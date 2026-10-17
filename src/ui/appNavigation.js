@@ -49,16 +49,9 @@ export function setupAppNavigation() {
     window.addEventListener('yoga:progress-close', () => setView('practice'));
     const context = document.createElement('section'); context.id = 'practiceContext'; context.hidden = true;
     const title = document.createElement('h2'); title.id = 'activeSequenceTitle'; context.append(title);
-    const back = document.createElement('button'); back.type = 'button'; back.textContent = 'Back to practice library'; back.id = 'backToLibraryBtn';
-    back.onclick = () => {
-        if (window.playbackEngine?.running) window.stopTimer();
-        document.body.classList.add('library-view');
-        document.getElementById('manualLibraryPanel').open = true;
-        document.getElementById('manualLibraryPanel').querySelector('summary').focus();
-    };
     const resume = document.createElement('button'); resume.type = 'button'; resume.textContent = 'Return to practice'; resume.id = 'returnToPracticeBtn';
     resume.onclick = () => { document.body.classList.remove('library-view'); title.focus(); };
-    title.tabIndex = -1; context.append(back, resume);
+    title.tabIndex = -1; context.append(resume);
     document.getElementById('practicePlaybackControls').before(context);
     const end = document.createElement('button'); end.type = 'button'; end.textContent = 'End practice'; end.id = 'endManualPracticeBtn';
     end.onclick = () => {
@@ -72,6 +65,7 @@ export function setupAppNavigation() {
         end.hidden = !!window.currentCurriculumPractice;
         const review = document.getElementById('quickEditBtn');
         if (review) review.disabled = !window.currentSequence || !document.getElementById('sequenceSelect').value;
+        if (typeof window.updateSequenceStepper === 'function') window.updateSequenceStepper();
     };
     document.getElementById('sequenceSelect').addEventListener('change', () => {
         document.body.classList.remove('library-view'); window.refreshPracticeNavigation();

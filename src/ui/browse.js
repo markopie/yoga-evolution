@@ -335,7 +335,29 @@ ${typeof formatTechniqueText === 'function' ? formatTechniqueText(baseDesc).trim
 
     const libraryActions = document.createElement('footer');
     libraryActions.className = 'browse-library-actions';
-    libraryActions.append(editBtn);
+
+    const findSeqBtn = document.createElement('button');
+    findSeqBtn.type = 'button';
+    findSeqBtn.textContent = 'Find sequences';
+    findSeqBtn.title = 'Show sequences containing this pose';
+    findSeqBtn.className = 'edit-asana-btn secondary';
+    findSeqBtn.onclick = () => {
+        const poseId = String(asana.id || asana.asanaNo || '');
+        closeBrowse();
+        const filterInput = document.getElementById('poseSequenceFilter');
+        if (filterInput) {
+            filterInput.value = poseId;
+            if (typeof window.renderCourseUI === 'function') window.renderCourseUI();
+        }
+        const panel = document.getElementById('manualLibraryPanel');
+        if (panel) {
+            panel.open = true;
+            const sel = document.getElementById('sequenceSelect');
+            if (sel) sel.focus();
+        }
+    };
+
+    libraryActions.append(editBtn, findSeqBtn);
     d.append(libraryActions);
 }
 

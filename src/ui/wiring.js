@@ -352,7 +352,88 @@ function setupSequenceSelector() {
         newBtn.style.cssText = "margin-left: 4px; padding: 4px 10px; font-weight: 600;";
         editBtn.parentNode.insertBefore(newBtn, editBtn.nextSibling);
         newBtn.onclick = () => builderOpen("new", null); // Opens directly into Edit Mode
+
+        setupSequenceStepper();
     }
+}
+
+// ── 1b. Sequence Stepper (‹ › browsing within the same collection) ───────────
+function setupSequenceStepper() {
+    const actions = document.getElementById('sequenceActions');
+    const editBtn = document.getElementById('quickEditBtn');
+    if (!actions || !editBtn || document.getElementById('prevSequenceBtn')) return;
+
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.id = 'prevSequenceBtn';
+    prevBtn.textContent = '‹ Prev';
+    prevBtn.title = 'Previous sequence in this collection';
+    prevBtn.className = 'tiny';
+    prevBtn.style.cssText = 'margin-left: 8px; padding: 4px 10px; font-weight: 600;';
+
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.id = 'nextSequenceBtn';
+    nextBtn.textContent = 'Next ›';
+    nextBtn.title = 'Next sequence in this collection';
+    nextBtn.className = 'tiny';
+    nextBtn.style.cssText = 'padding: 4px 10px; font-weight: 600;';
+
+    const anchor = document.getElementById('newSequenceBtn') || editBtn;
+    anchor.parentNode.insertBefore(prevBtn, anchor.nextSibling);
+    prevBtn.parentNode.insertBefore(nextBtn, prevBtn.nextSibling);
+
+    const isSessionActive = () => (window.playbackEngine && window.playbackEngine.activePracticeSeconds > 5)
+        || (window.currentIndex || 0) > 0
+        || (typeof window.getCompletionTracker === 'function' && Object.values(window.getCompletionTracker()).some(v => v > 0));
+
+    const siblingIndex = (offset) => {
+        const seq = window.currentSequence;
+        if (!seq) return -1;
+        const catOf = (course) => ((course?.category || '').trim() || 'Uncategorized');
+        const cat = catOf(seq);
+        const sameCat = (window.courses || [])
+            .map((course, idx) => ({ course, idx }))
+            .filter(item => catOf(item.course) === cat);
+        const seqId = String(seq.supabaseId ?? seq.id ?? '');
+        const pos = sameCat.findIndex(item => String(item.course.supabaseId ?? item.course.id ?? '') === seqId);
+        if (pos < 0) return -1;
+        const neighbour = sameCat[pos + offset];
+        return neighbour ? neighbour.idx : -1;
+    };
+
+    const switchTo = (targetIdx) => {
+        if (targetIdx < 0) return;
+        if (typeof window.stopTimer === 'function') window.stopTimer();
+        if (typeof window.saveCurrentProgress === 'function') window.saveCurrentProgress();
+        const sel = document.getElementById('sequenceSelect');
+        if (!sel) return;
+        sel.value = String(targetIdx);
+        sel.dispatchEvent(new Event('change'));
+    };
+
+    const step = (offset) => {
+        const targetIdx = siblingIndex(offset);
+        if (targetIdx < 0) return;
+        if (isSessionActive() && typeof window.showConflictModal === 'function') {
+            window.showConflictModal(() => switchTo(targetIdx), () => {});
+        } else {
+            switchTo(targetIdx);
+        }
+    };
+
+    prevBtn.onclick = () => step(-1);
+    nextBtn.onclick = () => step(1);
+
+    window.updateSequenceStepper = () => {
+        const inCurriculum = !!window.currentCurriculumPractice?.curriculum_node_id;
+        const visible = !!window.currentSequence && !inCurriculum;
+        prevBtn.style.display = visible ? '' : 'none';
+        nextBtn.style.display = visible ? '' : 'none';
+        prevBtn.disabled = !visible || siblingIndex(-1) < 0;
+        nextBtn.disabled = !visible || siblingIndex(1) < 0;
+    };
+    window.updateSequenceStepper();
 }
 
 // ── 2. Playback & Dial Wiring ────────────────────────────────────────────────

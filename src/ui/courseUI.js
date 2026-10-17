@@ -2,8 +2,8 @@
 // Course/Sequence dropdown rendering + collage/plate renderers
 
 import { matchesSequence, sequenceLabel } from '../services/sequenceTeaching.js';
-import { fetchCourseIdsByPoseId } from "../services/coursePoseIndexService.js";
-import { normalisePoseId, poseIdFromSequenceNode } from "../utils/poseId.js";
+import { fetchCourseIdsByPoseIds, parsePoseFilterIds } from "../services/coursePoseIndexService.js";
+import { poseIdFromSequenceNode } from "../utils/poseId.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEACHING CARD GROUPS
@@ -202,12 +202,10 @@ export function updateActiveCategoryTitle() {
     }
 }
 
-function courseContainsPose(course, target) {
-    if (!target) return true;
-
+function courseContainsPose(course, targets) {
+    if (!targets.length) return true;
     const poses = course.poses || [];
-
-    return poses.some((node) => poseIdFromSequenceNode(node) === target);
+    return poses.some((node) => targets.includes(poseIdFromSequenceNode(node)));
 }
 
 const poseFilterIndexState = {
@@ -224,9 +222,10 @@ function courseId(course) {
 }
 
 async function requestPoseFilterMatches(poseFilter) {
-    const target = normalisePoseId(poseFilter);
+    const targets = parsePoseFilterIds(poseFilter);
+    const targetKey = targets.join(',');
 
-    if (!target) {
+    if (!targetKey) {
         poseFilterIndexState.requestId += 1;
         poseFilterIndexState.target = '';
         poseFilterIndexState.ids = null;
@@ -235,19 +234,19 @@ async function requestPoseFilterMatches(poseFilter) {
         return;
     }
 
-    if (poseFilterIndexState.target === target && (poseFilterIndexState.loading || poseFilterIndexState.ids || poseFilterIndexState.error)) {
+    if (poseFilterIndexState.target === targetKey && (poseFilterIndexState.loading || poseFilterIndexState.ids || poseFilterIndexState.error)) {
         return;
     }
 
     const requestId = poseFilterIndexState.requestId + 1;
-    poseFilterIndexState.target = target;
+    poseFilterIndexState.target = targetKey;
     poseFilterIndexState.ids = null;
     poseFilterIndexState.loading = true;
     poseFilterIndexState.error = null;
     poseFilterIndexState.requestId = requestId;
 
     try {
-        const ids = await fetchCourseIdsByPoseId(target);
+        const ids = await fetchCourseIdsByPoseIds(targets);
         if (poseFilterIndexState.requestId !== requestId) return;
         poseFilterIndexState.ids = ids;
         poseFilterIndexState.loading = false;
@@ -301,12 +300,12 @@ export function renderCourseUI() {
     const courses    = window.courses || [];
     const filterVal  = filterEl ? filterEl.value : "ALL";
     const poseFilter = poseFilterEl ? poseFilterEl.value.trim() : "";
-    const poseTarget = normalisePoseId(poseFilter);
+    const poseTargets = parsePoseFilterIds(poseFilter);
+    const poseTargetKey = poseTargets.join(',');
     const currentVal = sel.value;
     let matchedCount = 0;
 
-    if (poseTarget) requestPoseFilterMatches(poseTarget);
-    else requestPoseFilterMatches('');
+    requestPoseFilterMatches(poseTargets.length ? poseTargets : '');
 
     sel.innerHTML = `<option value="">Choose a sequence</option>`;
 
@@ -315,13 +314,13 @@ export function renderCourseUI() {
         if (!matchesSequence(course, document.getElementById('sequenceSearch')?.value || '')) return;
         const cat = course.category ? course.category.trim() : "Uncategorized";
         if (filterVal !== "ALL" && cat !== filterVal) return;
-        if (poseTarget) {
-            const useIndex = poseFilterIndexState.target === poseTarget && poseFilterIndexState.ids;
-            const fallbackToLocalScan = poseFilterIndexState.target === poseTarget && poseFilterIndexState.error;
-            const indexLoading = poseFilterIndexState.target === poseTarget && poseFilterIndexState.loading;
+        if (poseTargetKey) {
+            const useIndex = poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.ids;
+            const fallbackToLocalScan = poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.error;
+            const indexLoading = poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.loading;
 
             if (useIndex && !poseFilterIndexState.ids.has(courseId(course))) return;
-            if (!useIndex && fallbackToLocalScan && !courseContainsPose(course, poseTarget)) return;
+            if (!useIndex && fallbackToLocalScan && !courseContainsPose(course, poseTargets)) return;
             if (!useIndex && !fallbackToLocalScan && !indexLoading) return;
         }
         matchedCount += 1;
@@ -357,12 +356,15 @@ export function renderCourseUI() {
     window.dispatchEvent(new Event('yoga:sequences-updated'));
     if (!matchedCount) sel.firstElementChild.textContent = 'No matching sequences';
     if (poseStatusEl) {
-        const indexLoading = poseTarget && poseFilterIndexState.target === poseTarget && poseFilterIndexState.loading;
-        const indexError = poseTarget && poseFilterIndexState.target === poseTarget && poseFilterIndexState.error;
+        const indexLoading = poseTargetKey && poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.loading;
+        const indexError = poseTargetKey && poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.error;
+        const poseLabel = poseTargets.length > 1
+            ? `any of poses ${poseTargets.join(', ')}`
+            : `direct pose ${poseTargets[0] || ''}`;
         poseStatusEl.textContent = indexLoading
-            ? `Searching direct pose ${poseTarget}...`
-            : poseTarget
-            ? `${matchedCount} sequence${matchedCount === 1 ? '' : 's'} contain direct pose ${poseTarget}${indexError ? ' (local fallback)' : ''}`
+            ? 'Searching matching poses...'
+            : poseTargetKey
+            ? `${matchedCount} sequence${matchedCount === 1 ? '' : 's'} contain ${poseLabel}${indexError ? ' (local fallback)' : ''} — see “Choose a sequence” below`
             : '';
     }
 }

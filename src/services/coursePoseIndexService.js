@@ -1,9 +1,19 @@
 import { supabase } from './supabaseClient.js';
 import { normalisePoseId } from '../utils/poseId.js';
 
-export async function fetchCourseIdsByPoseId(poseId) {
-    const target = normalisePoseId(poseId);
-    if (!target) return new Set();
+const MAX_POSE_FILTER_IDS = 20;
+
+export function parsePoseFilterIds(raw) {
+    if (Array.isArray(raw)) {
+        return [...new Set(raw.map(normalisePoseId).filter(Boolean))].slice(0, MAX_POSE_FILTER_IDS);
+    }
+    const tokens = String(raw ?? '').split(',');
+    return [...new Set(tokens.map(normalisePoseId).filter(Boolean))].slice(0, MAX_POSE_FILTER_IDS);
+}
+
+export async function fetchCourseIdsByPoseIds(poseIds) {
+    const targets = parsePoseFilterIds(poseIds);
+    if (!targets.length) return new Set();
 
     if (!supabase) {
         throw new Error('Supabase client is not available.');
@@ -12,7 +22,7 @@ export async function fetchCourseIdsByPoseId(poseId) {
     const { data, error } = await supabase
         .from('course_pose_index')
         .select('course_id')
-        .eq('pose_id', target)
+        .in('pose_id', targets)
         .eq('source_type', 'direct');
 
     if (error) {
