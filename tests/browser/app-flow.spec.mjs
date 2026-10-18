@@ -1,5 +1,5 @@
 import { createProfile } from './profile-helpers.mjs';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.mjs';
 
 async function openProfile(page) {
   const errors = [];

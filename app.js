@@ -20,7 +20,7 @@ function completionDebug(event, details = {}) {
 }
 import { parseHoldTimes } from "./src/utils/parsing.js";
 import { displayName, formatHMS } from "./src/utils/format.js";
-import { buildResumeState, resolveResumeCourse } from "./src/utils/resumeState.js";
+import { buildResumeState, resolveResumeCourse, isResumeStateActive } from "./src/utils/resumeState.js";
 import { isElementDisplayed } from "./src/utils/visibility.js";
 import { playbackEngine } from "./src/playback/timer.js";
 import { refreshCurriculumSnapshot } from "./src/services/curriculumOffline.js";
@@ -168,6 +168,12 @@ function saveCurrentProgress() {
     const ratingOverlay = document.getElementById("ratingOverlay");
     if (isElementDisplayed(ratingOverlay)) {
         return; // Abort the save. The session is already over.
+    }
+
+    // 🛡️ Only persist a resume point once the session is genuinely under way.
+    if (window.playbackEngine && window.playbackEngine.activePracticeSeconds < 5 && (window.currentIndex || 0) === 0) {
+        const tracker = typeof window.getCompletionTracker === 'function' ? window.getCompletionTracker() : {};
+        if (!Object.values(tracker).some(v => v > 0)) return;
     }
 
     // 1. Fetch the active tracker data
@@ -341,7 +347,8 @@ async function init() {
         const fourHours = 4 * 60 * 60 * 1000;
 
         if (state?.timestamp && (Date.now() - state.timestamp < fourHours)) {
-            if (state.poseIdx >= 0 && typeof showResumePrompt === "function") showResumePrompt(state);
+            if (state.poseIdx >= 0 && isResumeStateActive(state) && typeof showResumePrompt === "function") showResumePrompt(state);
+            else clearProgress();
         } else {
             clearProgress();
         }

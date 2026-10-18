@@ -1,4 +1,4 @@
-import { expect } from '@playwright/test';
+import { expect } from './fixtures.mjs';
 
 export async function createProfile(page, name = 'Practice profile') {
     await page.goto('/');

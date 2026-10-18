@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../browser/fixtures.mjs';
 import { readFile } from 'node:fs/promises';
 import { createProfile } from '../browser/profile-helpers.mjs';
 
@@ -73,7 +73,7 @@ test('hosted Supabase: Classes, PDF, personal practice, Browse and local backup'
     await page.locator('#navClasses').click(); await page.locator('#navProgress').click();
     await expect(page.locator('#historyBackdrop')).toBeVisible();
     await page.locator('#navPractice').click(); expect(await practice()).toEqual(before);
-    await page.locator('#backToLibraryBtn').click();
+    await page.locator('#manualLibraryPanel > summary').click();
     await page.locator('#browseBtn').click();
     const category = await page.locator('#browseCategory option').nth(1).getAttribute('value');
     await page.locator('#browseCategory').selectOption(category);
@@ -105,7 +105,7 @@ test('hosted Supabase: Classes, PDF, personal practice, Browse and local backup'
     await page.getByRole('button', { name: 'Start practice', exact: true }).click();
     await page.locator('#focusPauseBtn').click();
     await page.locator('#nextBtn').click();
-    await page.locator('#backToLibraryBtn').click();
+    await page.locator('#manualLibraryPanel > summary').click();
     await expect(page.locator('#sequenceSelect')).toBeDisabled();
     await page.locator('#navClasses').click();
     await expect(page.locator('#manualLibraryPanel')).toBeHidden();

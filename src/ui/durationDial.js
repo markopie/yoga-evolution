@@ -95,19 +95,13 @@ export function updateDialUI() {
     }
 
     const dialValueEl = document.getElementById('durationDialValue');
-    if (dialValueEl && window.currentSequence) {
-        const list = window.activePlaybackList || [];
-        const idx = window.currentIndex || 0;
-        if (list[idx] && !String(list[idx][0] || '').startsWith('MACRO:')) {
-            const secs = Number(list[idx][1]) || 0;
-            dialValueEl.textContent = secs ? `${secs}s per pose` : '';
-            dialValueEl.style.display = secs ? '' : 'none';
-        } else {
-            dialValueEl.style.display = 'none';
-        }
-    } else if (dialValueEl) {
+    if (!dialValueEl) return;
+    if (!window.currentSequence) {
         dialValueEl.style.display = 'none';
+        return;
     }
+    dialValueEl.textContent = pos > 50 ? 'Hold times: Faster' : pos < 50 ? 'Hold times: Slower' : 'Hold times: Standard';
+    dialValueEl.style.display = '';
 }
 
 export function applyDurationDial() {
