@@ -83,9 +83,11 @@ function clickDownloadLink(href, filename) {
 async function triggerBlobDownload(blob, filename) {
     const typedBlob = blob.type ? blob : new Blob([blob], { type: 'application/pdf' });
 
-    // Firefox for Android cannot hand blob: URLs to its download manager and opens about:blank instead.
+    // Firefox for Android opens about:blank for blob: URLs and previews PDFs in a new tab even with `download`;
+    // a generic-type data URL makes it save the file instead.
     if (isFirefoxMobile()) {
-        clickDownloadLink(await blobToDataUrl(typedBlob), filename);
+        const genericBlob = new Blob([typedBlob], { type: 'application/octet-stream' });
+        clickDownloadLink(await blobToDataUrl(genericBlob), filename);
         return;
     }
 
