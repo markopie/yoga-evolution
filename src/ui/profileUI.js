@@ -4,10 +4,11 @@ import { serverProfileBackup, writeClasses } from '../services/classRecords.js';
 import { supabase, supabaseConfig } from '../services/supabaseClient.js';
 import {
     PROFILES_KEY, SELECTED_PROFILE_KEY, readProfiles, rememberProfile,
-    forgetProfile, renameProfile, liveProfileSession,
+    forgetProfile, renameProfile, liveProfileSession, openProfileOffline, LOST_ACCESS_MESSAGE,
 } from '../services/deviceProfiles.js';
 import { loadCurriculumSnapshot } from '../services/curriculumOffline.js';
 import { syncProfilePreferences } from '../services/profilePreferences.js';
+import { isNetworkError } from '../services/authErrorClassification.js';
 import { themeManager } from './themeToggle.js';
 import { migrateProfileSequences } from '../services/profileSequenceMigration.js';
 
@@ -42,7 +43,10 @@ export async function setupProfileUI() {
         showMessage();
         try { await operation(); }
         catch (error) { showMessage(error.message || 'Could not open this profile. Please try again.'); }
-        finally { busy = false; byId('profileControls').disabled = false; }
+        finally {
+            busy = false;
+            byId('profileControls').disabled = false;
+        }
     };
     const reloadToPicker = () => {
         window.saveCurrentProgress?.();
@@ -66,18 +70,16 @@ export async function setupProfileUI() {
             open.setAttribute('aria-label', profile.name);
             open.title = `Switch to ${profile.name}`;
             open.addEventListener('click', () => run(async () => {
-                if (navigator.onLine) {
-                    if (!supabase) throw new Error('The profile service is not configured.');
+                if (!supabase) throw new Error('The profile service is not configured.');
+                try {
                     const { data, error } = await supabase.auth.setSession(profile.session || {});
-                    if (error || data?.session?.user?.id !== profile.id) {
-                        throw new Error('This device has lost access to the profile. Import your saved profile file to make a new copy.');
-                    }
+                    if (error) throw error;
+                    if (data?.session?.user?.id !== profile.id) throw new Error(LOST_ACCESS_MESSAGE);
                     const verified = await liveProfileSession(supabase, profile.id);
-                    if (!verified.valid) throw new Error('This device has lost access to the profile. Import your saved profile file to make a new copy.');
+                    if (!verified.valid) throw verified.error || new Error(LOST_ACCESS_MESSAGE);
                     rememberProfile(data.session);
-                } else {
-                    const snapshot = await loadCurriculumSnapshot({ userId: profile.id });
-                    if (!snapshot?.nodes?.length) throw new Error('Connect once to download this profile for offline use.');
+                } catch (onlineError) {
+                    await openProfileOffline(onlineError, profile.id, loadCurriculumSnapshot);
                 }
                 sessionStorage.setItem(SELECTED_PROFILE_KEY, profile.id);
                 sessionStorage.removeItem(PICKER_REQUEST_KEY);
@@ -214,8 +216,15 @@ export async function setupProfileUI() {
     });
 
     await run(async () => {
-        const result = navigator.onLine ? await supabase?.auth.getSession() : null;
-        const session = result?.data?.session;
+        let session = null;
+        let online = true;
+        try {
+            const result = await supabase?.auth.getSession();
+            session = result?.data?.session;
+        } catch (sessionError) {
+            if (!isNetworkError(sessionError)) throw sessionError;
+            online = false;
+        }
         // Adopt existing signed-in users without creating a replacement identity.
         if (session?.refresh_token) rememberProfile(session);
         render();
@@ -232,14 +241,18 @@ export async function setupProfileUI() {
         const profile = profiles.find((item) => item.id === selectedId);
         if (!profile) return;
         showMessage('Opening your last-used profile…');
-        let online = navigator.onLine;
         if (online) {
-            if (session?.user?.id !== profile.id) {
-                sessionStorage.removeItem(SELECTED_PROFILE_KEY);
-                return;
+            try {
+                if (session?.user?.id !== profile.id) {
+                    sessionStorage.removeItem(SELECTED_PROFILE_KEY);
+                    return;
+                }
+                const verified = await liveProfileSession(supabase, profile.id);
+                if (!verified.valid) throw verified.error || new Error(LOST_ACCESS_MESSAGE);
+            } catch (onlineError) {
+                await openProfileOffline(onlineError, profile.id, loadCurriculumSnapshot);
+                online = false;
             }
-            const verified = await liveProfileSession(supabase, profile.id);
-            if (!verified.valid) throw new Error('Could not open this profile. Check your internet connection, or import your saved profile file.');
         } else {
             const snapshot = await loadCurriculumSnapshot({ userId: profile.id });
             if (!snapshot?.nodes?.length) throw new Error('Connect once to download this profile for offline use.');

@@ -97,7 +97,7 @@ window.handleNext = () => {
 function nextPose() {
     const poses = (window.activePlaybackList && window.activePlaybackList.length > 0)
                   ? window.activePlaybackList
-                  : (window.currentSequence.poses || []);
+                  : (window.currentSequence?.poses || []);
 
     if (!poses.length) return false;
 
@@ -126,7 +126,7 @@ function nextPose() {
 function prevPose() {
     const poses = (window.activePlaybackList && window.activePlaybackList.length > 0)
                   ? window.activePlaybackList
-                  : (window.currentSequence.poses || []);
+                  : (window.currentSequence?.poses || []);
 
     if (window.getCurrentSide() === "left") {
         const currentPose = poses[window.currentIndex];
@@ -191,7 +191,7 @@ function setPose(idx, keepSamePose = false) {
     if (!window.currentSequence) return;
     const poses = (window.activePlaybackList && window.activePlaybackList.length > 0)
                   ? window.activePlaybackList
-                  : (window.currentSequence.poses || []);
+                  : (window.currentSequence?.poses || []);
 
     if (idx < 0 || idx >= poses.length) return;
 
@@ -216,7 +216,7 @@ function setPose(idx, keepSamePose = false) {
                             ? currentPose[5]
                             : idx;
 
-    const displayTotal = window.currentSequence.poses ? window.currentSequence.poses.length : poses.length;
+    const displayTotal = window.currentSequence?.poses ? window.currentSequence.poses.length : poses.length;
 
     const focusCounter = document.getElementById("focusPoseCounter");
     if (focusCounter) {

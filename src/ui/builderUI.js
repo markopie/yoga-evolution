@@ -55,15 +55,46 @@ function getSequenceTitle() {
     return (document.getElementById('builderTitle')?.value || '').trim();
 }
 
-function triggerBlobDownload(blob, filename) {
-    const url = URL.createObjectURL(blob);
+function isFirefoxMobile() {
+    const ua = navigator.userAgent || '';
+    return /Firefox/.test(ua) && /Mobile|Android/.test(ua);
+}
+
+function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+    });
+}
+
+function clickDownloadLink(href, filename) {
     const link = document.createElement('a');
-    link.href = url;
+    link.href = href;
     link.download = filename;
+    link.rel = 'noopener';
+    link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
     link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function triggerBlobDownload(blob, filename) {
+    const typedBlob = blob.type ? blob : new Blob([blob], { type: 'application/pdf' });
+
+    // Firefox for Android opens about:blank for blob: URLs and previews PDFs in a new tab even with `download`;
+    // a generic-type data URL makes it save the file instead.
+    if (isFirefoxMobile()) {
+        const genericBlob = new Blob([typedBlob], { type: 'application/octet-stream' });
+        clickDownloadLink(await blobToDataUrl(genericBlob), filename);
+        return;
+    }
+
+    const url = URL.createObjectURL(typedBlob);
+    clickDownloadLink(url, filename);
+    // Mobile browsers read the blob asynchronously; revoking immediately cancels the download.
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 function getCurrentCategoryValue() {
@@ -110,10 +141,10 @@ export async function downloadSequencePdf(button = document.getElementById('btnD
             const download = await createSequenceDownload(mainData, linkedData, {
                 renderPdf: data => generateTablePdf(data, { environment }),
             });
-            triggerBlobDownload(download.blob, download.filename);
+            await triggerBlobDownload(download.blob, download.filename);
         } catch (error) {
             console.error('[PDF] Sequence export failed:', error);
-            alert(pdfErrorMessage(error));
+            showPdfExportError(button, pdfErrorMessage(error));
             throw error;
         }
     });
@@ -128,12 +159,25 @@ export async function downloadClassPdf(course, cover, button) {
             const download = await createSequenceDownload(main, linked, {
                 renderPdf: data => generateTablePdf(data === main ? { ...data, classCover: cover } : data, { environment }),
             });
-            triggerBlobDownload(download.blob, download.filename);
+            await triggerBlobDownload(download.blob, download.filename);
         } catch (error) {
             console.error('[PDF] Class export failed:', error);
-            alert(pdfErrorMessage(error));
+            showPdfExportError(button, pdfErrorMessage(error));
         }
     });
+}
+
+function showPdfExportError(button, message) {
+    let status = document.getElementById('pdfExportStatus');
+    if (!status) {
+        status = document.createElement('p');
+        status.id = 'pdfExportStatus';
+        status.style.cssText = 'color:#c0392b; font-size:0.85rem; margin:8px 0; padding:0;';
+        button?.parentNode?.appendChild(status);
+    }
+    status.textContent = message;
+    status.style.display = 'block';
+    setTimeout(() => { status.style.display = 'none'; }, 5000);
 }
 
 

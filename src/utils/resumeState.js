@@ -30,6 +30,22 @@ export function buildResumeState({
     };
 }
 
+export const SESSION_ACTIVE_MIN_SECONDS = 5;
+
+/**
+ * Mirrors the app-wide "is a session genuinely under way?" check used by
+ * handleStart and the reset flow: real practice time, movement past the first
+ * pose, or at least one completed pose.
+ */
+export function isResumeStateActive(state) {
+    if (!state) return false;
+    const focusMs = Number(state.focusDuration) || 0;
+    if (focusMs / 1000 >= SESSION_ACTIVE_MIN_SECONDS) return true;
+    if (Number(state.poseIdx) > 0) return true;
+    const tracker = state.completionTracker || {};
+    return Object.values(tracker).some(v => Number(v) > 0);
+}
+
 export function resolveResumeCourse(courses, state) {
     const courseList = Array.isArray(courses) ? courses : [];
     const savedId = state?.sequenceId;

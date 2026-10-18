@@ -47,4 +47,17 @@ function exitBrowseDetailMode() {
     if (modal) modal.classList.remove("detail-mode");
 }
 
-export { normaliseText, $, safeListen, setStatus, showError, enterBrowseDetailMode, exitBrowseDetailMode };
+function enableModalClose(backdropId, { onClose = null } = {}) {
+    const backdrop = document.getElementById(backdropId);
+    if (!backdrop) return;
+    const close = () => {
+        backdrop.style.display = 'none';
+        onClose?.();
+    };
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && backdrop.style.display !== 'none' && backdrop.style.display !== '') close();
+    });
+}
+
+export { normaliseText, $, safeListen, setStatus, showError, enterBrowseDetailMode, exitBrowseDetailMode, enableModalClose };

@@ -1,10 +1,11 @@
 import { builderState } from '../store/builderState.js';
 import { getTargetInsertionIndex, clearBuilderSelection } from './builder.js';
-import { $, showError, safeListen, normaliseText, setStatus } from '../utils/dom.js';
+import { $, showError, safeListen, normaliseText, setStatus, enableModalClose } from '../utils/dom.js';
 import { prefersIAST, setIASTPref, formatHMS, displayName } from '../utils/format.js';
 import { normalizePlate } from '../services/dataAdapter.js';
 import { playbackEngine } from '../playback/timer.js';
 import { builderRender, openEditCourse, builderOpen, addPoseToBuilder, createRepeatGroup, openLinkSequenceModal } from './builder.js';
+import { setupSequenceViewerStepper, finishSequenceBrowsing } from './sequenceViewerStepper.js';
 // ── Application State Aliases ────────────────────────────────────────────────
 // ── UI Constants ─────────────────────────────────────────────────────────────
 const EMPTY_STATE_HTML = `
@@ -352,6 +353,7 @@ function setupSequenceSelector() {
         newBtn.style.cssText = "margin-left: 4px; padding: 4px 10px; font-weight: 600;";
         editBtn.parentNode.insertBefore(newBtn, editBtn.nextSibling);
         newBtn.onclick = () => builderOpen("new", null); // Opens directly into Edit Mode
+
     }
 }
 
@@ -594,10 +596,17 @@ function setupBuilderWiring() {
         $("editCourseBackdrop").style.display = "none";
         builderState.opener?.focus();
         document.body.classList.remove("modal-open");
+        finishSequenceBrowsing();
     };
 
     safeListen("editCourseCloseBtn", "click", closeBuilderModal);
     safeListen("editCourseCancelBtn", "click", closeBuilderModal);
+
+    enableModalClose('editCourseBackdrop', { onClose: closeBuilderModal });
+    enableModalClose('asanaEditorBackdrop');
+    enableModalClose('linkSequenceOverlay');
+    enableModalClose('repetitionModalOverlay');
+    enableModalClose('rowSearchOverlay', { onClose: () => window._closeInjectionSearch?.() });
 }
 
 // ── 4. UI Extras (IAST, History) ─────────────────────────────────────────────
@@ -665,6 +674,7 @@ function initWiring() {
     setupSequenceSelector();
     setupPlaybackControls();
     setupBuilderWiring();
+    setupSequenceViewerStepper();
     setupUIExtras();
 
     // Global exports for external access where strictly necessary

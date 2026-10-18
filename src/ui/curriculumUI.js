@@ -89,6 +89,42 @@ function findCourseById(sequenceId) {
     );
 }
 
+// Render a full-screen status card in place of the practice workspace,
+// so failures never leave a silently blank content area.
+function renderBlankState(title, message, { actionLabel = null, onAction = null } = {}) {
+    const workspace = $('practiceWorkspace');
+    const controls = $('practicePlaybackControls');
+    if (controls) controls.style.display = 'none';
+    if (!workspace) return false;
+    workspace.style.display = '';
+    window.isBriefingActive = false;
+    workspace.replaceChildren();
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.cssText = 'text-align:center; padding:32px 20px;';
+    const titleEl = document.createElement('div');
+    titleEl.style.cssText = 'font-size:1.05rem; font-weight:700; margin-bottom:8px;';
+    titleEl.textContent = title;
+    const msgEl = document.createElement('div');
+    msgEl.className = 'muted';
+    msgEl.style.cssText = 'margin-bottom:16px;';
+    msgEl.textContent = message;
+    card.append(titleEl, msgEl);
+    if (actionLabel && onAction) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'curriculumBlankRetryBtn';
+        btn.textContent = actionLabel;
+        btn.addEventListener('click', onAction);
+        card.append(btn);
+    }
+    grid.append(card);
+    workspace.append(grid);
+    return true;
+}
+
 function roleLabel(role) {
     const labels = {
         primary_asana: 'Asana',
@@ -326,9 +362,32 @@ function renderPracticeDetails(practice) {
     updateCurriculumLibraryLock();
 }
 
-function loadResolvedSequence(practice) {
-    const parts = enrichPracticeComposition(practice);
-    const playableParts = parts.filter(part => part.course);
+async function loadResolvedSequence(practice) {
+    // Sequence ids referenced by curriculum nodes must exist in the loaded
+    // course library. Retry one fetch when the library is missing or stale
+    // instead of reporting a resolution failure.
+    let parts = [];
+    let playableParts = [];
+    let resolved = null;
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+        parts = enrichPracticeComposition(practice);
+        playableParts = parts.filter(part => part.course);
+        resolved = practice?.resolved_sequence_id
+            || playableParts.length > 0
+            || parts.length === 0;
+        if (resolved) break;
+        if (attempt === 0) {
+            const libraryMissing = !window.appInitialized
+                || window.courses === null
+                || window.courses === undefined;
+            if (libraryMissing && typeof window.loadCourses === 'function') {
+                await window.loadCourses().catch(() => {});
+            } else {
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+        }
+    }
 
     if (!practice?.resolved_sequence_id && playableParts.length === 0) {
         const summary = $('curriculumPracticeSummary');
@@ -515,7 +574,18 @@ async function startTodayPractice(
         }
 
         if (isSequenceReady(practice) || hasPlayableComposition) {
-            loadResolvedSequence(practice);
+            const opened = await loadResolvedSequence(practice);
+            if (!opened) {
+                renderBlankState('Unable to open practice',
+                    'The selected practice could not be resolved to a sequence.',
+                    {
+                        actionLabel: 'Reload sequences',
+                        onAction: () => {
+                            const go = typeof window.loadCourses === 'function' ? window.loadCourses() : Promise.resolve();
+                            void go.then(() => startTodayPractice(repeatNodeId));
+                        },
+                    });
+            }
             return;
         }
 
@@ -531,8 +601,12 @@ async function startTodayPractice(
         updateCurriculumLibraryLock();
     } catch (err) {
         console.error('Curriculum start failed:', err);
-        if (summary) summary.textContent = err.message || 'Could not load today\'s practice.';
-        if (!window.currentCurriculumPractice) setPracticeWorkspaceVisible(false);
+        const message = err.message || 'Could not load today\'s practice.';
+        if (summary) summary.textContent = message;
+        if (!window.currentCurriculumPractice) {
+            setPracticeWorkspaceVisible(false);
+            renderBlankState('Unable to open practice', message);
+        }
     } finally {
         if (btn) {
             btn.disabled = false;

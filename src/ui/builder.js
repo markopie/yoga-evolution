@@ -760,6 +760,7 @@ function openEditCourse() {
 }
 
 function builderOpen(mode, seq) {
+    const alreadyOpen = $("editCourseBackdrop")?.style.display === "flex";
     builderState.opener = document.activeElement;
 
     if (window.speechSynthesis) window.speechSynthesis.cancel();
@@ -1074,6 +1075,7 @@ function builderOpen(mode, seq) {
     builderRender();
     
     $("editCourseBackdrop").style.display = "flex";
+    window.dispatchEvent(new CustomEvent('yoga:builder-opened', { detail: { mode, seq, alreadyOpen } }));
     setTimeout(() => { if($("builderSearch")) $("builderSearch").focus(); }, 50);
 }
 

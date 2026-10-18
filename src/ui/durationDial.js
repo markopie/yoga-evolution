@@ -89,11 +89,19 @@ export function updateDialUI() {
 
     const pos = getDialPosition();
 
-    // Visual feedback only: toggle classes based on position
     if (wrap) {
         wrap.classList.toggle("dial-faster", pos > 50);
         wrap.classList.toggle("dial-slower", pos < 50);
     }
+
+    const dialValueEl = document.getElementById('durationDialValue');
+    if (!dialValueEl) return;
+    if (!window.currentSequence) {
+        dialValueEl.style.display = 'none';
+        return;
+    }
+    dialValueEl.textContent = pos > 50 ? 'Hold times: Faster' : pos < 50 ? 'Hold times: Slower' : 'Hold times: Standard';
+    dialValueEl.style.display = '';
 }
 
 export function applyDurationDial() {

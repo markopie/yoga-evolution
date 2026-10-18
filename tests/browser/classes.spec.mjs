@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.mjs';
 import { createProfile } from './profile-helpers.mjs';
 import { readFile } from 'node:fs/promises';
 
@@ -73,7 +73,7 @@ test('classes reuse normal playback and navigation preserves its state', async (
     await page.locator('#navPractice').click();
     expect(await page.evaluate(() => ({ id: window.currentSequence.id, index: window.currentIndex, time: window.playbackEngine.remaining }))).toEqual(before);
     await expect(page.locator('#activeSequenceTitle')).toHaveText('Mock Seated Foundation');
-    await page.locator('#backToLibraryBtn').click();
+    await page.locator('#manualLibraryPanel > summary').click();
     await expect(page.locator('#practiceWorkspace')).toBeHidden();
     await page.locator('#returnToPracticeBtn').click();
     await expect(page.locator('#practiceWorkspace')).toBeVisible();
@@ -82,7 +82,7 @@ test('classes reuse normal playback and navigation preserves its state', async (
 test('curriculum retains sequence restriction when returning to library', async ({ page }) => {
     await createProfile(page); await page.locator('#startTodayPracticeBtn').click();
     await page.getByRole('button', { name: /preview first pose/i }).click();
-    await page.locator('#backToLibraryBtn').click();
+    await page.locator('#manualLibraryPanel > summary').click();
     await expect(page.locator('#sequenceSelect')).toBeDisabled();
     await page.locator('#navClasses').click();
     await expect(page.locator('#manualLibraryPanel')).toBeHidden();

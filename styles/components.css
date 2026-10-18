@@ -2,6 +2,94 @@
    SHARED COMPONENTS
    ========================================================================== */
 
+/* App Loading Overlay */
+.app-loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-main);
+}
+.app-loading-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    max-width: 340px;
+    text-align: center;
+    padding: 40px 24px;
+}
+.app-loading-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--color-border);
+    border-top-color: #0f6b66;
+    border-radius: 50%;
+    animation: app-loading-spin 0.8s linear infinite;
+}
+@keyframes app-loading-spin { to { transform: rotate(360deg); } }
+.app-loading-step {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+}
+.app-loading-error {
+    margin: 0;
+    font-size: 0.9rem;
+    color: #c0392b;
+    line-height: 1.5;
+}
+.app-loading-retry {
+    padding: 10px 24px;
+    border-radius: 10px;
+    border: 1px solid var(--color-border-input);
+    background: #0f6b66;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+.app-loading-retry:hover { background: #0d5c57; }
+
+/* Resume Banner */
+.resume-banner {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999;
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 12px 20px;
+    border-radius: 14px;
+    background: #0f6b66;
+    color: #fff;
+    font-size: 0.9rem;
+    box-shadow: 0 4px 16px rgba(15, 107, 102, 0.3);
+}
+.resume-banner__resume-btn {
+    border: none;
+    padding: 6px 16px;
+    border-radius: 10px;
+    background: #fff;
+    color: #0f6b66;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 0.85rem;
+}
+.resume-banner__close-btn {
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0 4px;
+}
+
 /* Buttons */
 button {
     padding: 12px 18px;
@@ -640,6 +728,11 @@ button.tiny {
 .sequence-pose-filter__status {
     font-size: 0.8rem;
     color: #6e6e73;
+}
+
+.sequence-pose-filter__show-all {
+    margin-left: 4px;
+    vertical-align: baseline;
 }
 
 /* Linked sequence details shared by Review and Practice Summary */
