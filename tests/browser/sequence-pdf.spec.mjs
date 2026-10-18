@@ -48,31 +48,6 @@ test.describe('sequence PDF downloads', () => {
         expect(page.__uncaughtErrors).toEqual([]);
     });
 
-    test('Firefox Android fallback waits for a real tap on the ready download link', async ({ page }) => {
-        await page.addInitScript(() => {
-            Object.defineProperty(navigator, 'userAgent', {
-                configurable: true,
-                value: 'Mozilla/5.0 (Android 13; Mobile; rv:158.0) Gecko/158.0 Firefox/158.0',
-            });
-        });
-        await openCourseReview(page, 'Mock Seated Foundation');
-        await page.getByRole('button', { name: 'Download PDF' }).click();
-
-        const readyLink = page.getByRole('link', { name: 'Tap to save PDF' });
-        await expect(readyLink).toBeVisible();
-
-        const downloadPromise = page.waitForEvent('download');
-        await readyLink.click();
-        const download = await downloadPromise;
-        const stream = await download.createReadStream();
-        let byteLength = 0;
-        for await (const chunk of stream) byteLength += chunk.length;
-
-        expect(download.suggestedFilename().toLowerCase()).toMatch(/\.pdf$/);
-        expect(byteLength).toBeGreaterThan(100);
-        expect(page.__uncaughtErrors).toEqual([]);
-    });
-
     test('linked-macro course downloads a non-empty ZIP without external networking', async ({ page }) => {
         await openCourseReview(page, 'Mock Linked Macro Practice');
         await expectNonEmptyDownload(page, /\.zip$/);

@@ -55,52 +55,15 @@ function getSequenceTitle() {
     return (document.getElementById('builderTitle')?.value || '').trim();
 }
 
-function isFirefoxMobile() {
-    const ua = navigator.userAgent || '';
-    return /Firefox/.test(ua) && /Mobile|Android/.test(ua);
-}
-
-function blobToDataUrl(blob) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(blob);
-    });
-}
-
-function clickDownloadLink(href, filename) {
+function triggerBlobDownload(blob, filename) {
+    const typedBlob = blob.type ? blob : new Blob([blob], { type: 'application/pdf' });
+    const url = URL.createObjectURL(typedBlob);
     const link = document.createElement('a');
-    link.href = href;
+    link.href = url;
     link.download = filename;
-    link.rel = 'noopener';
-    link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
     link.remove();
-}
-
-async function triggerBlobDownload(blob, filename, button) {
-    const typedBlob = blob.type ? blob : new Blob([blob], { type: 'application/pdf' });
-
-    // Let Firefox for Android start the data-URL download from a real user tap.
-    if (isFirefoxMobile()) {
-        const genericBlob = new Blob([typedBlob], { type: 'application/octet-stream' });
-        const link = document.createElement('a');
-        link.id = 'pdfDownloadReadyLink';
-        link.href = await blobToDataUrl(genericBlob);
-        link.download = filename;
-        link.className = 'btn-export-primary';
-        link.style.display = 'inline-block';
-        link.style.textDecoration = 'none';
-        link.textContent = `Tap to save ${filename.toLowerCase().endsWith('.zip') ? 'ZIP' : 'PDF'}`;
-        document.getElementById('pdfDownloadReadyLink')?.remove();
-        button?.insertAdjacentElement('afterend', link);
-        return;
-    }
-
-    const url = URL.createObjectURL(typedBlob);
-    clickDownloadLink(url, filename);
     // Mobile browsers read the blob asynchronously; revoking immediately cancels the download.
     setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
@@ -149,7 +112,7 @@ export async function downloadSequencePdf(button = document.getElementById('btnD
             const download = await createSequenceDownload(mainData, linkedData, {
                 renderPdf: data => generateTablePdf(data, { environment }),
             });
-            await triggerBlobDownload(download.blob, download.filename, button);
+            triggerBlobDownload(download.blob, download.filename);
         } catch (error) {
             console.error('[PDF] Sequence export failed:', error);
             showPdfExportError(button, pdfErrorMessage(error));
@@ -167,7 +130,7 @@ export async function downloadClassPdf(course, cover, button) {
             const download = await createSequenceDownload(main, linked, {
                 renderPdf: data => generateTablePdf(data === main ? { ...data, classCover: cover } : data, { environment }),
             });
-            await triggerBlobDownload(download.blob, download.filename, button);
+            triggerBlobDownload(download.blob, download.filename);
         } catch (error) {
             console.error('[PDF] Class export failed:', error);
             showPdfExportError(button, pdfErrorMessage(error));
