@@ -55,7 +55,21 @@ function getSequenceTitle() {
     return (document.getElementById('builderTitle')?.value || '').trim();
 }
 
-function triggerBlobDownload(blob, filename) {
+async function shareFileOnMobile(blob, filename) {
+    if (!window.matchMedia?.('(pointer: coarse)').matches || !navigator.canShare) return false;
+    const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
+    if (!navigator.canShare({ files: [file] })) return false;
+    try {
+        await navigator.share({ files: [file], title: filename });
+        return true;
+    } catch (error) {
+        // User dismissed the share sheet; anything else (e.g. expired tap) falls back to a normal download.
+        return error?.name === 'AbortError';
+    }
+}
+
+async function triggerBlobDownload(blob, filename) {
+    if (await shareFileOnMobile(blob, filename)) return;
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -63,7 +77,8 @@ function triggerBlobDownload(blob, filename) {
     document.body.appendChild(link);
     link.click();
     link.remove();
-    URL.revokeObjectURL(url);
+    // Mobile browsers read the blob asynchronously; revoking immediately cancels the download.
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 function getCurrentCategoryValue() {
@@ -110,7 +125,7 @@ export async function downloadSequencePdf(button = document.getElementById('btnD
             const download = await createSequenceDownload(mainData, linkedData, {
                 renderPdf: data => generateTablePdf(data, { environment }),
             });
-            triggerBlobDownload(download.blob, download.filename);
+            await triggerBlobDownload(download.blob, download.filename);
         } catch (error) {
             console.error('[PDF] Sequence export failed:', error);
             showPdfExportError(button, pdfErrorMessage(error));
@@ -128,7 +143,7 @@ export async function downloadClassPdf(course, cover, button) {
             const download = await createSequenceDownload(main, linked, {
                 renderPdf: data => generateTablePdf(data === main ? { ...data, classCover: cover } : data, { environment }),
             });
-            triggerBlobDownload(download.blob, download.filename);
+            await triggerBlobDownload(download.blob, download.filename);
         } catch (error) {
             console.error('[PDF] Class export failed:', error);
             showPdfExportError(button, pdfErrorMessage(error));
