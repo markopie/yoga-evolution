@@ -80,14 +80,22 @@ function clickDownloadLink(href, filename) {
     link.remove();
 }
 
-async function triggerBlobDownload(blob, filename) {
+async function triggerBlobDownload(blob, filename, button) {
     const typedBlob = blob.type ? blob : new Blob([blob], { type: 'application/pdf' });
 
-    // Firefox for Android opens about:blank for blob: URLs and previews PDFs in a new tab even with `download`;
-    // a generic-type data URL makes it save the file instead.
+    // Let Firefox for Android start the data-URL download from a real user tap.
     if (isFirefoxMobile()) {
         const genericBlob = new Blob([typedBlob], { type: 'application/octet-stream' });
-        clickDownloadLink(await blobToDataUrl(genericBlob), filename);
+        const link = document.createElement('a');
+        link.id = 'pdfDownloadReadyLink';
+        link.href = await blobToDataUrl(genericBlob);
+        link.download = filename;
+        link.className = 'btn-export-primary';
+        link.style.display = 'inline-block';
+        link.style.textDecoration = 'none';
+        link.textContent = `Tap to save ${filename.toLowerCase().endsWith('.zip') ? 'ZIP' : 'PDF'}`;
+        document.getElementById('pdfDownloadReadyLink')?.remove();
+        button?.insertAdjacentElement('afterend', link);
         return;
     }
 
@@ -141,7 +149,7 @@ export async function downloadSequencePdf(button = document.getElementById('btnD
             const download = await createSequenceDownload(mainData, linkedData, {
                 renderPdf: data => generateTablePdf(data, { environment }),
             });
-            await triggerBlobDownload(download.blob, download.filename);
+            await triggerBlobDownload(download.blob, download.filename, button);
         } catch (error) {
             console.error('[PDF] Sequence export failed:', error);
             showPdfExportError(button, pdfErrorMessage(error));
@@ -159,7 +167,7 @@ export async function downloadClassPdf(course, cover, button) {
             const download = await createSequenceDownload(main, linked, {
                 renderPdf: data => generateTablePdf(data === main ? { ...data, classCover: cover } : data, { environment }),
             });
-            await triggerBlobDownload(download.blob, download.filename);
+            await triggerBlobDownload(download.blob, download.filename, button);
         } catch (error) {
             console.error('[PDF] Class export failed:', error);
             showPdfExportError(button, pdfErrorMessage(error));
