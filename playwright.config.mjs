@@ -29,6 +29,7 @@ export default defineConfig({
     env: {
       ...process.env,
       VITE_BROWSER_TEST_MOCKS: process.env.VITE_BROWSER_TEST_MOCKS ?? '1',
+      PLAYWRIGHT_PREVIEW: '1',
     },
   },
   projects: [

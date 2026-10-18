@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.mjs';
 import { createProfile } from './profile-helpers.mjs';
 
 async function expectCleanPlayer(page) {

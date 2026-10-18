@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures.mjs';
 import { createProfile } from './profile-helpers.mjs';
 import { readFile } from 'node:fs/promises';
 

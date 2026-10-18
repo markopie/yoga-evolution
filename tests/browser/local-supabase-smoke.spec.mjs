@@ -1,6 +1,6 @@
 import { createProfile } from './profile-helpers.mjs';
 
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures.mjs';
 import { createClient } from '@supabase/supabase-js';
 import { readFile } from 'node:fs/promises';
 
