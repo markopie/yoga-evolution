@@ -65,7 +65,6 @@ export function setupAppNavigation() {
         end.hidden = !!window.currentCurriculumPractice;
         const review = document.getElementById('quickEditBtn');
         if (review) review.disabled = !window.currentSequence || !document.getElementById('sequenceSelect').value;
-        if (typeof window.updateSequenceStepper === 'function') window.updateSequenceStepper();
     };
     document.getElementById('sequenceSelect').addEventListener('change', () => {
         document.body.classList.remove('library-view'); window.refreshPracticeNavigation();
