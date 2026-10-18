@@ -304,20 +304,22 @@ export function renderCourseUI() {
     const poseTargetKey = poseTargets.join(',');
     const currentVal = sel.value;
     let matchedCount = 0;
+    let outsideCount = 0;
 
     requestPoseFilterMatches(poseTargets.length ? poseTargets : '');
 
     sel.innerHTML = `<option value="">Choose a sequence</option>`;
 
     const grouped = {};
-    // The pose ID filter is authoritative while active: it searches across all
-    // collections so a stale category/title filter can't silently shrink results.
+    // While the pose ID filter is active the title search is ignored so a stale
+    // query can't silently hide matches; matches outside the collection are counted.
     const searchingByPose = poseTargetKey.length > 0;
     courses.forEach((course, idx) => {
         const cat = course.category ? course.category.trim() : "Uncategorized";
+        const inCollection = filterVal === "ALL" || cat === filterVal;
         if (!searchingByPose) {
             if (!matchesSequence(course, document.getElementById('sequenceSearch')?.value || '')) return;
-            if (filterVal !== "ALL" && cat !== filterVal) return;
+            if (!inCollection) return;
         }
         if (searchingByPose) {
             const useIndex = poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.ids;
@@ -327,6 +329,10 @@ export function renderCourseUI() {
             if (useIndex && !poseFilterIndexState.ids.has(courseId(course))) return;
             if (!useIndex && fallbackToLocalScan && !courseContainsPose(course, poseTargets)) return;
             if (!useIndex && !fallbackToLocalScan && !indexLoading) return;
+            if (!inCollection) {
+                outsideCount += 1;
+                return;
+            }
         }
         matchedCount += 1;
         if (!grouped[cat]) grouped[cat] = [];
@@ -360,18 +366,47 @@ export function renderCourseUI() {
     window.refreshPracticeNavigation?.();
     window.dispatchEvent(new Event('yoga:sequences-updated'));
     if (!matchedCount) sel.firstElementChild.textContent = 'No matching sequences';
-    if (poseStatusEl) {
-        const indexLoading = poseTargetKey && poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.loading;
-        const indexError = poseTargetKey && poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.error;
-        const poseLabel = poseTargets.length > 1
-            ? `any of poses ${poseTargets.join(', ')}`
-            : `pose ${poseTargets[0] || ''}`;
-        poseStatusEl.textContent = indexLoading
-            ? 'Searching matching poses...'
-            : poseTargetKey
-            ? `${matchedCount} sequence${matchedCount === 1 ? '' : 's'} contain ${poseLabel} across all collections${indexError ? ' (offline scan)' : ''} — see “Choose a sequence” below`
-            : '';
+    if (poseStatusEl) renderPoseFilterStatus(poseStatusEl, {
+        poseTargets, matchedCount, outsideCount, filterEl, filterVal,
+    });
+}
+
+function renderPoseFilterStatus(statusEl, { poseTargets, matchedCount, outsideCount, filterEl, filterVal }) {
+    const targetKey = poseTargets.join(',');
+    statusEl.replaceChildren();
+    if (!targetKey) return;
+
+    const isCurrent = poseFilterIndexState.target === targetKey;
+    if (isCurrent && poseFilterIndexState.loading) {
+        statusEl.textContent = 'Searching matching poses...';
+        return;
     }
+
+    const poseLabel = poseTargets.length > 1 ? `any of poses ${poseTargets.join(', ')}` : `pose ${poseTargets[0]}`;
+    const plural = (n) => `${n} sequence${n === 1 ? '' : 's'}`;
+    const verb = matchedCount === 1 ? 'contains' : 'contain';
+    const offline = isCurrent && poseFilterIndexState.error ? ' (offline scan)' : '';
+
+    if (filterVal === 'ALL') {
+        statusEl.textContent = `${plural(matchedCount)} ${verb} ${poseLabel} across all collections${offline}`;
+        return;
+    }
+
+    const collectionName = filterEl?.selectedOptions?.[0]?.textContent.replace(/^\S+\s/, '') || filterVal;
+    statusEl.textContent = `${plural(matchedCount)} in ${collectionName} ${verb} ${poseLabel}${offline}`;
+    if (!outsideCount) return;
+
+    statusEl.append(` · ${outsideCount} more in other collections `);
+    const showAll = document.createElement('button');
+    showAll.type = 'button';
+    showAll.className = 'tiny sequence-pose-filter__show-all';
+    showAll.textContent = 'Show all collections';
+    showAll.addEventListener('click', () => {
+        filterEl.value = 'ALL';
+        renderCourseUI();
+        document.getElementById('sequenceSelect')?.focus();
+    });
+    statusEl.append(showAll);
 }
 
 /**

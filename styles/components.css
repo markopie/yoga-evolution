@@ -730,6 +730,11 @@ button.tiny {
     color: #6e6e73;
 }
 
+.sequence-pose-filter__show-all {
+    margin-left: 4px;
+    vertical-align: baseline;
+}
+
 /* Linked sequence details shared by Review and Practice Summary */
 .linked-sequence-details {
     margin-top: 10px;

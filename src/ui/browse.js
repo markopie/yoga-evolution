@@ -347,6 +347,8 @@ ${typeof formatTechniqueText === 'function' ? formatTechniqueText(baseDesc).trim
         const filterInput = document.getElementById('poseSequenceFilter');
         if (filterInput) {
             filterInput.value = poseId;
+            const collectionFilter = document.getElementById('categoryFilter');
+            if (collectionFilter) collectionFilter.value = 'ALL';
             if (typeof window.renderCourseUI === 'function') window.renderCourseUI();
         }
         const panel = document.getElementById('manualLibraryPanel');
