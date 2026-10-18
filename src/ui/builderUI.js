@@ -55,22 +55,9 @@ function getSequenceTitle() {
     return (document.getElementById('builderTitle')?.value || '').trim();
 }
 
-async function shareFileOnMobile(blob, filename) {
-    if (!window.matchMedia?.('(pointer: coarse)').matches || !navigator.canShare) return false;
-    const file = new File([blob], filename, { type: blob.type || 'application/octet-stream' });
-    if (!navigator.canShare({ files: [file] })) return false;
-    try {
-        await navigator.share({ files: [file], title: filename });
-        return true;
-    } catch (error) {
-        // User dismissed the share sheet; anything else (e.g. expired tap) falls back to a normal download.
-        return error?.name === 'AbortError';
-    }
-}
-
-async function triggerBlobDownload(blob, filename) {
-    if (await shareFileOnMobile(blob, filename)) return;
-    const url = URL.createObjectURL(blob);
+function triggerBlobDownload(blob, filename) {
+    // A generic type stops mobile browsers from trying to open the PDF in a viewer tab instead of saving it.
+    const url = URL.createObjectURL(new Blob([blob], { type: 'application/octet-stream' }));
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
