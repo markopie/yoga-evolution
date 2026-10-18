@@ -55,15 +55,42 @@ function getSequenceTitle() {
     return (document.getElementById('builderTitle')?.value || '').trim();
 }
 
-function triggerBlobDownload(blob, filename) {
-    // A generic type stops mobile browsers from trying to open the PDF in a viewer tab instead of saving it.
-    const url = URL.createObjectURL(new Blob([blob], { type: 'application/octet-stream' }));
+function isFirefoxMobile() {
+    const ua = navigator.userAgent || '';
+    return /Firefox/.test(ua) && /Mobile|Android/.test(ua);
+}
+
+function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(blob);
+    });
+}
+
+function clickDownloadLink(href, filename) {
     const link = document.createElement('a');
-    link.href = url;
+    link.href = href;
     link.download = filename;
+    link.rel = 'noopener';
+    link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
     link.remove();
+}
+
+async function triggerBlobDownload(blob, filename) {
+    const typedBlob = blob.type ? blob : new Blob([blob], { type: 'application/pdf' });
+
+    // Firefox for Android cannot hand blob: URLs to its download manager and opens about:blank instead.
+    if (isFirefoxMobile()) {
+        clickDownloadLink(await blobToDataUrl(typedBlob), filename);
+        return;
+    }
+
+    const url = URL.createObjectURL(typedBlob);
+    clickDownloadLink(url, filename);
     // Mobile browsers read the blob asynchronously; revoking immediately cancels the download.
     setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
