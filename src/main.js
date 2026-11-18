@@ -1,15 +1,18 @@
 import '../styles/main.css';
 import '../styles/classes.css';
 
+const shellVersion = 21;
+
 async function cacheLoadedAppShell() {
     if (import.meta.env.DEV) return;
     if (!('caches' in window)) return;
     const controller = new AbortController();
     const cancel = () => controller.abort();
     window.addEventListener('pagehide', cancel, { once: true });
-    const cache = await caches.open('yoga-shell-v20');
+    const cache = await caches.open(`yoga-shell-v${shellVersion}`);
     const resources = new Set([
         new URL('./', window.location.href).toString(),
+        new URL('course-sources.html', window.location.href).toString(),
         new URL('manifest.webmanifest', window.location.href).toString(),
         new URL('icons/yoga-evolution-192.png', window.location.href).toString(),
         ...performance.getEntriesByType('resource')
@@ -35,7 +38,7 @@ if (!new URLSearchParams(window.location.search).get('prototype')) {
         // Version the script URL as well as the cache name. This prevents an
         // older worker from serving a cached sw.js and hiding client fixes
         // during local testing or after deployment.
-        navigator.serviceWorker.register(`${base}sw.js?v=20`, { scope: base })
+        navigator.serviceWorker.register(`${base}sw.js?v=${shellVersion}`, { scope: base })
             .then((registration) => {
                 registration.addEventListener('updatefound', () => {
                     const worker = registration.installing;

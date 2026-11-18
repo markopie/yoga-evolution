@@ -191,7 +191,11 @@ window.applyPendingSequence = () => {
 window.syncSequenceSelector = () => {
     const sel = $("sequenceSelect");
     if (sel && window.currentSequence) {
-        const idx = (window.courses || []).findIndex(c => c.title === window.currentSequence.title);
+        const current = window.currentSequence;
+        const id = current.supabaseId ?? current.id;
+        const idx = (window.courses || []).findIndex(c => id == null
+            ? c === current || c.title === current.title
+            : String(c.supabaseId ?? c.id) === String(id));
         if (idx !== -1) sel.value = String(idx);
     }
 };

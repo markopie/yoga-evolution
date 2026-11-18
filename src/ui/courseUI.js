@@ -2,8 +2,10 @@
 // Course/Sequence dropdown rendering + collage/plate renderers
 
 import { matchesSequence, sequenceLabel } from '../services/sequenceTeaching.js';
-import { fetchCourseIdsByPoseIds, parsePoseFilterIds } from "../services/coursePoseIndexService.js";
-import { poseIdFromSequenceNode } from "../utils/poseId.js";
+import { findSequencePoseMatches, parsePoseFilterIds } from "../services/coursePoseIndexService.js";
+import { renderDiscoveryResults } from "./poseDiscovery.js";
+import { supabase, supabaseConfig } from '../services/supabaseClient.js';
+import { requestDiscoverySourceOrder } from '../services/discoverySourceOrder.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TEACHING CARD GROUPS
@@ -202,211 +204,90 @@ export function updateActiveCategoryTitle() {
     }
 }
 
-function courseContainsPose(course, targets) {
-    if (!targets.length) return true;
-    const poses = course.poses || [];
-    return poses.some((node) => targets.includes(poseIdFromSequenceNode(node)));
-}
-
-const poseFilterIndexState = {
-    target: '',
-    ids: null,
-    loading: false,
-    error: null,
-    requestId: 0,
-};
-
-function courseId(course) {
-    const id = course?.supabaseId ?? course?.id;
-    return id == null ? '' : String(id);
-}
-
-async function requestPoseFilterMatches(poseFilter) {
-    const targets = parsePoseFilterIds(poseFilter);
-    const targetKey = targets.join(',');
-
-    if (!targetKey) {
-        poseFilterIndexState.requestId += 1;
-        poseFilterIndexState.target = '';
-        poseFilterIndexState.ids = null;
-        poseFilterIndexState.loading = false;
-        poseFilterIndexState.error = null;
-        return;
-    }
-
-    if (poseFilterIndexState.target === targetKey && (poseFilterIndexState.loading || poseFilterIndexState.ids || poseFilterIndexState.error)) {
-        return;
-    }
-
-    const requestId = poseFilterIndexState.requestId + 1;
-    poseFilterIndexState.target = targetKey;
-    poseFilterIndexState.ids = null;
-    poseFilterIndexState.loading = true;
-    poseFilterIndexState.error = null;
-    poseFilterIndexState.requestId = requestId;
-
-    try {
-        const ids = await fetchCourseIdsByPoseIds(targets);
-        if (poseFilterIndexState.requestId !== requestId) return;
-        poseFilterIndexState.ids = ids;
-        poseFilterIndexState.loading = false;
-        poseFilterIndexState.error = null;
-        renderCourseUI();
-    } catch (error) {
-        if (poseFilterIndexState.requestId !== requestId) return;
-        console.warn('[courseUI] Falling back to local pose filtering:', error);
-        poseFilterIndexState.ids = null;
-        poseFilterIndexState.loading = false;
-        poseFilterIndexState.error = error;
-        renderCourseUI();
-    }
-}
-
 function setupPoseSequenceFilter() {
     const input = document.getElementById('poseSequenceFilter');
-    const clearBtn = document.getElementById('clearPoseSequenceFilter');
     if (!input || input.dataset.wired === 'true') return;
-
-    let timer = null;
+    input.dataset.wired = 'true';
+    let timer;
     const rerender = () => {
         clearTimeout(timer);
-        timer = setTimeout(() => renderCourseUI(), 80);
+        timer = setTimeout(renderCourseUI, 80);
     };
-
     document.getElementById('sequenceSearch')?.addEventListener('input', rerender);
-    input.dataset.wired = 'true';
     input.addEventListener('input', rerender);
-
-    if (clearBtn) {
-        clearBtn.addEventListener('click', () => {
+    document.getElementById('poseMatchMode').addEventListener('change', renderCourseUI);
+    document.getElementById('clearPoseSequenceFilter').addEventListener('click', () => {
+        input.value = '';
+        renderCourseUI();
+        input.focus();
+    });
+    window.addEventListener('offline', renderCourseUI);
+    window.addEventListener('online', renderCourseUI);
+    let profile = window.currentUserId;
+    window.addEventListener('yoga:verified-session', () => {
+        if (window.currentUserId !== profile) {
             input.value = '';
+            document.getElementById('poseMatchMode').value = 'any';
             renderCourseUI();
-            input.focus();
-        });
-    }
+        }
+        profile = window.currentUserId;
+    });
 }
 
-/**
- * Rebuilds the sequence <select> filtered by the current category selection.
- * Groups courses by their category string and sorts alphabetically.
- */
 export function renderCourseUI() {
-    const sel      = document.getElementById("sequenceSelect");
-    const filterEl = document.getElementById("categoryFilter");
-    const poseFilterEl = document.getElementById("poseSequenceFilter");
-    const poseStatusEl = document.getElementById("poseSequenceFilterStatus");
+    const sel = document.getElementById('sequenceSelect');
     if (!sel) return;
-
-    const courses    = window.courses || [];
-    const filterVal  = filterEl ? filterEl.value : "ALL";
-    const poseFilter = poseFilterEl ? poseFilterEl.value.trim() : "";
-    const poseTargets = parsePoseFilterIds(poseFilter);
-    const poseTargetKey = poseTargets.join(',');
-    const currentVal = sel.value;
-    let matchedCount = 0;
-    let outsideCount = 0;
-
-    requestPoseFilterMatches(poseTargets.length ? poseTargets : '');
-
-    sel.innerHTML = `<option value="">Choose a sequence</option>`;
-
-    const grouped = {};
-    // While the pose ID filter is active the title search is ignored so a stale
-    // query can't silently hide matches; matches outside the collection are counted.
-    const searchingByPose = poseTargetKey.length > 0;
-    courses.forEach((course, idx) => {
-        const cat = course.category ? course.category.trim() : "Uncategorized";
-        const inCollection = filterVal === "ALL" || cat === filterVal;
-        if (!searchingByPose) {
-            if (!matchesSequence(course, document.getElementById('sequenceSearch')?.value || '')) return;
-            if (!inCollection) return;
-        }
-        if (searchingByPose) {
-            const useIndex = poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.ids;
-            const fallbackToLocalScan = poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.error;
-            const indexLoading = poseFilterIndexState.target === poseTargetKey && poseFilterIndexState.loading;
-
-            if (useIndex && !poseFilterIndexState.ids.has(courseId(course))) return;
-            if (!useIndex && fallbackToLocalScan && !courseContainsPose(course, poseTargets)) return;
-            if (!useIndex && !fallbackToLocalScan && !indexLoading) return;
-            if (!inCollection) {
-                outsideCount += 1;
-                return;
-            }
-        }
-        matchedCount += 1;
-        if (!grouped[cat]) grouped[cat] = [];
-        grouped[cat].push({ course, idx });
-    });
-
-    // Inside renderCourseUI()
-    Object.keys(grouped).sort().forEach(catName => {
-        const groupEl   = document.createElement("optgroup");
-        groupEl.label   = catName;
-
-        grouped[catName].forEach(item => {
-            const opt = document.createElement("option");
-            opt.value = String(item.idx);
-
-            // Tagging Aliases ensures they are indexed and distinguishable in search.
-            const aliasSuffix = item.course.is_alias ? " 🏷️ (Alias)" : "";
-            opt.textContent = sequenceLabel(item.course) + aliasSuffix;
-
-            groupEl.appendChild(opt);
-        });
-        sel.appendChild(groupEl);
-    });
-
-    if (currentVal) {
-        const exists = Array.from(sel.options).some(o => o.value === currentVal);
-        if (exists) sel.value = currentVal;
-        else sel.value = "";
+    const courses = window.courses || [];
+    const filter = document.getElementById('categoryFilter');
+    const collection = filter?.value || 'ALL';
+    const targets = parsePoseFilterIds(document.getElementById('poseSequenceFilter')?.value);
+    if (targets.length) {
+        requestDiscoverySourceOrder(supabase, supabaseConfig?.url, navigator.onLine !== false, renderCourseUI);
     }
-
+    const mode = document.getElementById('poseMatchMode')?.value || 'any';
+    const matches = targets.length ? findSequencePoseMatches(courses, targets, {
+        profileId: window.currentUserId, asanaLibrary: window.asanaLibrary,
+    }) : null;
+    const titleQuery = document.getElementById('sequenceSearch')?.value || '';
+    const previous = sel.value;
+    const groups = new Map();
+    const visibleMatches = new Map();
+    const collectionCourses = [];
+    const sequenceHits = [];
+    let outside = 0;
+    courses.forEach((course, index) => {
+        if (!matchesSequence(course, titleQuery)) return;
+        const category = course.category?.trim() || 'Uncategorized';
+        const inCollection = collection === 'ALL' || category === collection;
+        if (targets.length) {
+            if (inCollection) collectionCourses.push(course);
+            const match = matches.get(course);
+            if (!match) return;
+            if (inCollection) visibleMatches.set(course, match);
+            if (mode === 'all' && match.matchedTargets.length !== targets.length) return;
+            if (!inCollection) { outside++; return; }
+            sequenceHits.push(course);
+        } else if (!inCollection) {
+            return;
+        }
+        if (!groups.has(category)) groups.set(category, []);
+        groups.get(category).push({ course, index });
+    });
+    const first = new Option(groups.size ? 'Choose a sequence' : 'No matching sequences', '');
+    sel.replaceChildren(first);
+    for (const category of [...groups.keys()].sort()) {
+        const group = document.createElement('optgroup');
+        group.label = category;
+        for (const { course, index } of groups.get(category)) {
+            group.append(new Option(sequenceLabel(course) + (course.is_alias ? ' 🏷️ (Alias)' : ''), String(index)));
+        }
+        sel.append(group);
+    }
+    if (previous && [...sel.options].some(option => option.value === previous)) sel.value = previous;
+    renderDiscoveryResults({ targets, mode, visibleMatches, collectionCourses, allMatches: matches || visibleMatches,
+        allCourses: courses, sequenceHits, outside, filter, renderCourseUI });
     window.refreshPracticeNavigation?.();
     window.dispatchEvent(new Event('yoga:sequences-updated'));
-    if (!matchedCount) sel.firstElementChild.textContent = 'No matching sequences';
-    if (poseStatusEl) renderPoseFilterStatus(poseStatusEl, {
-        poseTargets, matchedCount, outsideCount, filterEl, filterVal,
-    });
-}
-
-function renderPoseFilterStatus(statusEl, { poseTargets, matchedCount, outsideCount, filterEl, filterVal }) {
-    const targetKey = poseTargets.join(',');
-    statusEl.replaceChildren();
-    if (!targetKey) return;
-
-    const isCurrent = poseFilterIndexState.target === targetKey;
-    if (isCurrent && poseFilterIndexState.loading) {
-        statusEl.textContent = 'Searching matching poses...';
-        return;
-    }
-
-    const poseLabel = poseTargets.length > 1 ? `any of poses ${poseTargets.join(', ')}` : `pose ${poseTargets[0]}`;
-    const plural = (n) => `${n} sequence${n === 1 ? '' : 's'}`;
-    const verb = matchedCount === 1 ? 'contains' : 'contain';
-    const offline = isCurrent && poseFilterIndexState.error ? ' (offline scan)' : '';
-
-    if (filterVal === 'ALL') {
-        statusEl.textContent = `${plural(matchedCount)} ${verb} ${poseLabel} across all collections${offline}`;
-        return;
-    }
-
-    const collectionName = filterEl?.selectedOptions?.[0]?.textContent.replace(/^\S+\s/, '') || filterVal;
-    statusEl.textContent = `${plural(matchedCount)} in ${collectionName} ${verb} ${poseLabel}${offline}`;
-    if (!outsideCount) return;
-
-    statusEl.append(` · ${outsideCount} more in other collections `);
-    const showAll = document.createElement('button');
-    showAll.type = 'button';
-    showAll.className = 'tiny sequence-pose-filter__show-all';
-    showAll.textContent = 'Show all collections';
-    showAll.addEventListener('click', () => {
-        filterEl.value = 'ALL';
-        renderCourseUI();
-        document.getElementById('sequenceSelect')?.focus();
-    });
-    statusEl.append(showAll);
 }
 
 /**

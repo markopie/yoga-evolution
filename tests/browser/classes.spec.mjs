@@ -77,19 +77,23 @@ test('classes reuse normal playback and navigation preserves its state', async (
     await expect(page.locator('#practiceWorkspace')).toBeHidden();
     await page.locator('#returnToPracticeBtn').click();
     await expect(page.locator('#practiceWorkspace')).toBeVisible();
+    expect(await page.evaluate(() => ({ id: window.currentSequence.id, index: window.currentIndex, time: window.playbackEngine.remaining }))).toEqual(before);
 });
 
-test('curriculum retains sequence restriction when returning to library', async ({ page }) => {
+test('curriculum retains sequence restriction until returning to the library after practice', async ({ page }) => {
     await createProfile(page); await page.locator('#startTodayPracticeBtn').click();
     await page.getByRole('button', { name: /preview first pose/i }).click();
-    await page.locator('#manualLibraryPanel > summary').click();
+    await expect(page.locator('#manualLibraryPanel')).toBeHidden();
     await expect(page.locator('#sequenceSelect')).toBeDisabled();
+    await expect(page.locator('#poseMatchMode')).toBeDisabled();
     await page.locator('#navClasses').click();
     await expect(page.locator('#manualLibraryPanel')).toBeHidden();
     await page.locator('#navPractice').click();
-    await page.locator('#returnToPracticeBtn').click();
     await expect(page.locator('#practiceWorkspace')).toBeVisible();
     expect(await page.evaluate(() => window.currentCurriculumPractice.curriculum_node_id)).toBeTruthy();
+    await page.locator('#exitCurriculumPracticeBtn').click();
+    await page.locator('#manualLibraryPanel > summary').click();
+    await expect(page.locator('#poseMatchMode')).toBeEnabled();
 });
 
 test('unsaved edits can be kept and write failures preserve entered data', async ({ page }) => {
@@ -133,7 +137,7 @@ test('class backup stays local during import and profiles remain isolated', asyn
     await page.getByRole('button', { name: 'Save class', exact: true }).click();
     await page.locator('#settingsToggleButton').click();
     const downloaded = page.waitForEvent('download');
-    await page.locator('#exportProfileBtn').click();
+    await page.getByRole('button', { name: 'Export backup', exact: true }).click();
     const backup = JSON.parse(await readFile(await (await downloaded).path(), 'utf8'));
     expect(backup.classes[0].students[0].name).toBe('Private student');
     await page.locator('#signOutBtn').click();

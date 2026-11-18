@@ -49,8 +49,20 @@ export function setupAppNavigation() {
     window.addEventListener('yoga:progress-close', () => setView('practice'));
     const context = document.createElement('section'); context.id = 'practiceContext'; context.hidden = true;
     const title = document.createElement('h2'); title.id = 'activeSequenceTitle'; context.append(title);
+    const library = document.getElementById('manualLibraryPanel');
+    library.querySelector('summary').addEventListener('click', () => {
+        if (!window.currentSequence || window.isBriefingActive || window.currentCurriculumPractice) return;
+        // Native details changes its open state after the summary click.
+        const opening = !library.open;
+        if (opening && window.playbackEngine?.running) window.stopTimer();
+        document.body.classList.toggle('library-view', opening);
+    });
     const resume = document.createElement('button'); resume.type = 'button'; resume.textContent = 'Return to practice'; resume.id = 'returnToPracticeBtn';
-    resume.onclick = () => { document.body.classList.remove('library-view'); title.focus(); };
+    resume.onclick = () => {
+        library.open = false;
+        document.body.classList.remove('library-view');
+        title.focus();
+    };
     title.tabIndex = -1; context.append(resume);
     document.getElementById('practicePlaybackControls').before(context);
     const end = document.createElement('button'); end.type = 'button'; end.textContent = 'End practice'; end.id = 'endManualPracticeBtn';

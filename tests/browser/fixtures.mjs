@@ -76,12 +76,8 @@ export const test = base.extend({
         { scope: 'worker' },
     ],
 
-    baseURL: async ({ _tunnel }, use) => {
-        if (_tunnel) {
-            await use(_tunnel.url);
-        } else {
-            await use(undefined);
-        }
+    baseURL: async ({ baseURL, _tunnel }, use) => {
+        await use(_tunnel ? _tunnel.url : baseURL);
     },
 
     // Set the bypass header on every page so subresource requests also skip

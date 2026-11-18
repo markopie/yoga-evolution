@@ -200,6 +200,9 @@ function updateCurriculumLibraryLock() {
         $('poseSequenceFilter'),
         $('sequenceSearch'),
         $('clearPoseSequenceFilter'),
+        $('poseMatchMode'),
+        $('poseLearningFocus'),
+        $('poseReferenceLesson'),
     ].filter(Boolean);
 
     controls.forEach((control) => {

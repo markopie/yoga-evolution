@@ -54,6 +54,7 @@ function parseSequenceJSON(json) {
 
 async function fetchCourses(currentUserId = null) {
     if (!supabase) return [];
+    const snapshotKey = currentUserId ? `${COURSE_SNAPSHOT_KEY}:${currentUserId}` : COURSE_SNAPSHOT_KEY;
 
     try {
         if (navigator.onLine === false) throw new Error('Offline');
@@ -156,32 +157,32 @@ async function fetchCourses(currentUserId = null) {
             });
         }
 
-        // 3. Deduplicate using Composite Key
-        const finalMap = new Map();
-        rawAccumulator.forEach(item => {
-            const compositeKey = `${item.category.toLowerCase()} | ${item.title.toLowerCase()}`;
-            finalMap.set(compositeKey, item);
-        });
-
-        // 4. Final Sort and Assign
-        const deduplicated = Array.from(finalMap.values()).sort((a, b) => {
+        // Two distinct lessons or personal copies can share both a collection and a title.
+        const courses = rawAccumulator.sort((a, b) => {
             const catSort = a.category.localeCompare(b.category, undefined, { numeric: true });
             return catSort !== 0 ? catSort : a.title.localeCompare(b.title, undefined, { numeric: true });
         });
 
-        setCourses(deduplicated);
-        await saveSnapshot(COURSE_SNAPSHOT_KEY, deduplicated).catch((error) =>
+        setCourses(courses);
+        const sharedCourses = courses.filter(course => course.isSystem);
+        await saveSnapshot(COURSE_SNAPSHOT_KEY, sharedCourses).catch((error) =>
             console.warn('[Offline] Could not save course snapshot:', error));
-        return deduplicated;
+        if (currentUserId) {
+            await saveSnapshot(snapshotKey, courses).catch((error) =>
+                console.warn('[Offline] Could not save profile course snapshot:', error));
+        }
+        return courses;
     } catch (e) {
         console.error("Exception loading courses:", e);
-        const snapshot = await loadSnapshot(COURSE_SNAPSHOT_KEY).catch(() => null);
-        if (Array.isArray(snapshot) && snapshot.length) {
-            console.info(`[Offline] Loaded ${snapshot.length} courses from the device snapshot.`);
-            setCourses(snapshot);
-            return snapshot;
+        let snapshot = await loadSnapshot(snapshotKey).catch(() => null);
+        if (!Array.isArray(snapshot) && currentUserId) {
+            snapshot = await loadSnapshot(COURSE_SNAPSHOT_KEY).catch(() => null);
         }
-        return [];
+        // Older device-wide snapshots may include another profile's private sequences.
+        const courses = Array.isArray(snapshot) ? snapshot.filter(course =>
+            course?.isSystem === true || (currentUserId && course?.userId === currentUserId)) : [];
+        setCourses(courses);
+        return courses;
     }
 }
 

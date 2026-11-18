@@ -1,5 +1,6 @@
 import { builderState } from '../store/builderState.js';
 import { builderOpen } from './builder.js';
+import { resolveSequenceContent } from '../services/sequenceTeaching.js';
 
 let viewedIndex = null;
 let startIndex = null;
@@ -110,6 +111,17 @@ function isSessionActive() {
 
 export function setupSequenceViewerStepper() {
     window.addEventListener('yoga:builder-opened', onBuilderOpened);
+}
+
+// A course can match across several lessons even when none is in the sequence
+// dropdown. Preview that lesson without changing the practitioner's selection.
+export function previewDiscoverySequence(course) {
+    if (!isAvailable()) return;
+    const sequence = resolveSequenceContent(course, window.courses || []);
+    if (!sequence) return;
+    builderOpen('edit', sequence);
+    viewedIndex = null;
+    render();
 }
 
 // Called when the viewer closes: if the user browsed to a different sequence, open it on the

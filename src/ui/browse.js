@@ -3,8 +3,49 @@ import { isBrowseMobile } from "../utils/helpers.js";
 import { playAsanaAudio } from "../playback/audioEngine.js";
 import { normalizePlate } from "../services/dataAdapter.js";
 import { displayName, formatTechniqueText, formatCategory } from "../utils/format.js";
+import { parsePoseFilterIds } from "../services/coursePoseIndexService.js";
 // Access global variables that app.js sets
 const getAsanaLibrary = () => window.asanaLibrary;
+
+function discoveryToken(asana, stageKey) {
+    const id = asana.id || asana.asanaNo;
+    if (!id) return '';
+    if (!stageKey) return parsePoseFilterIds([id])[0] || '';
+    const stageId = asana.variations?.[stageKey]?.id;
+    return stageId == null || stageId === '' ? '' : parsePoseFilterIds([id + '/' + stageId])[0] || '';
+}
+
+function selectedDiscoveryPoses() {
+    return parsePoseFilterIds($('poseSequenceFilter')?.value);
+}
+
+function updateSearchSelection(token, include) {
+    const input = $('poseSequenceFilter');
+    if (!input || !token || input.disabled) return false;
+    const current = selectedDiscoveryPoses();
+    const next = parsePoseFilterIds(include ? [...current, token] : current.filter(id => id !== token));
+    input.value = next.join(', ');
+    updateBrowseSearchActions();
+    return next.includes(token) === include;
+}
+
+function updateBrowseSearchActions() {
+    const selected = selectedDiscoveryPoses();
+    const done = $('showPoseSearchResults');
+    if (done) done.hidden = selected.length === 0 || $('poseSequenceFilter')?.disabled;
+    for (const box of document.querySelectorAll('#browseList input[data-search-target]')) {
+        box.checked = selected.includes(box.dataset.searchTarget);
+        box.disabled = !box.dataset.searchTarget || $('poseSequenceFilter')?.disabled ||
+            (!box.checked && parsePoseFilterIds([...selected, box.dataset.searchTarget]).length === selected.length);
+    }
+}
+
+function showSearchResults() {
+    closeBrowse();
+    const panel = $('manualLibraryPanel');
+    if (panel) panel.open = true;
+    $('sequenceSelect')?.focus();
+}
 
 function setupBrowseUI() {
 // console.log("setupBrowseUI() is running...");
@@ -25,6 +66,7 @@ function setupBrowseUI() {
     if ($("browseCloseBtn")) {
         $("browseCloseBtn").addEventListener("click", closeBrowse);
     }
+    $('showPoseSearchResults')?.addEventListener('click', showSearchResults);
 
     // 3. Hide Finals Checkbox
     const finalsChk = $("browseFinalOnly");
@@ -146,6 +188,7 @@ document.body.classList.add("modal-open");
     
     try {
         applyBrowseFilters(); 
+        updateBrowseSearchActions();
     } catch (e) {
         console.error("❌ ERROR inside applyBrowseFilters:", e);
     }
@@ -165,6 +208,7 @@ function closeBrowse() {
     exitBrowseDetailMode();
     const d = $("browseDetail");
     if (d) d.innerHTML = "";
+    window.renderCourseUI?.();
     if ($("browseBtn")) $("browseBtn").focus();
 }
 
@@ -218,13 +262,15 @@ async function showAsanaDetail(asana, highlightStageKey = null) {
         key,
         title: value?.title || value?.Title || `Stage ${key}`,
     }));
-    const selectedVariation = highlightStageKey || '';
+    let selectedVariation = highlightStageKey || '';
     const teachingCard = window.renderTeachingCard({
         asana,
         poseId: asana.id || asana.asanaNo,
         variation: selectedVariation,
         variationOptions,
         onVariationChange: (nextKey) => {
+            selectedVariation = nextKey || '';
+            findSeqBtn.disabled = !discoveryToken(asana, selectedVariation) || $('poseSequenceFilter')?.disabled;
             const selected = nextKey || null;
             d.querySelectorAll('.variation-block, .user-variation-block').forEach((block) => {
                 const isSelected = block.dataset.stageKey === selected;
@@ -341,22 +387,12 @@ ${typeof formatTechniqueText === 'function' ? formatTechniqueText(baseDesc).trim
     findSeqBtn.textContent = 'Find sequences';
     findSeqBtn.title = 'Show sequences containing this pose';
     findSeqBtn.className = 'edit-asana-btn secondary';
+    findSeqBtn.disabled = !discoveryToken(asana, selectedVariation) || $('poseSequenceFilter')?.disabled;
     findSeqBtn.onclick = () => {
-        const poseId = String(asana.id || asana.asanaNo || '');
-        closeBrowse();
-        const filterInput = document.getElementById('poseSequenceFilter');
-        if (filterInput) {
-            filterInput.value = poseId;
-            const collectionFilter = document.getElementById('categoryFilter');
-            if (collectionFilter) collectionFilter.value = 'ALL';
-            if (typeof window.renderCourseUI === 'function') window.renderCourseUI();
-        }
-        const panel = document.getElementById('manualLibraryPanel');
-        if (panel) {
-            panel.open = true;
-            const sel = document.getElementById('sequenceSelect');
-            if (sel) sel.focus();
-        }
+        if (!updateSearchSelection(discoveryToken(asana, selectedVariation), true)) return;
+        const filter = $('categoryFilter');
+        if (filter) filter.value = 'ALL';
+        showSearchResults();
     };
 
     libraryActions.append(editBtn, findSeqBtn);
@@ -381,7 +417,7 @@ function applyBrowseFilters() {
         if (!a) return false;
 
         if (normQ) {
-            const searchStr = normalizeText(a.name) + " " + normalizeText(a.english) + " " + normalizeText(a.iast);
+            const searchStr = normalizeText([a.name, a.english, a.iast, a.devanagari].filter(Boolean).join(' '));
             if (!searchStr.includes(normQ)) return false;
         }
 
@@ -593,12 +629,23 @@ function renderBrowseList(items) {
           }
        });
 
-       row.appendChild(left);
-       row.appendChild(btn);
+       const actions = document.createElement('div');
+       actions.className = 'browse-item__actions';
+       const include = document.createElement('label');
+       const box = document.createElement('input');
+       box.type = 'checkbox';
+       box.dataset.searchTarget = discoveryToken(asma, asma._stageKey);
+       box.setAttribute('aria-label', 'Include ' + primaryName + ' in pose search');
+       box.addEventListener('change', () => updateSearchSelection(box.dataset.searchTarget, box.checked));
+       include.append(box, 'Include');
+       if (!box.dataset.searchTarget) include.title = 'This variation has no searchable stage ID.';
+       actions.append(btn, include);
+       row.append(left, actions);
        frag.appendChild(row);
     });
     
     list.appendChild(frag);
+    updateBrowseSearchActions();
 
     if (items.length > 400) {
        const more = document.createElement("div");

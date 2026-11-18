@@ -1,9 +1,10 @@
-const SHELL_CACHE = 'yoga-shell-v20';
+const SHELL_CACHE = 'yoga-shell-v21';
 const MEDIA_CACHE = 'yoga-offline-media-v1';
 const OFFLINE_MEDIA_PREFIX = '/__offline_media__/';
 const EXCLUDED_OFFLINE_BUCKETS = ['yoga-cards'];
 const APP_SHELL = [
     './',
+    './course-sources.html',
     './manifest.webmanifest',
     './icons/yoga-evolution-192.png',
     './icons/yoga-evolution-512.png',
@@ -112,15 +113,17 @@ self.addEventListener('fetch', (event) => {
     if (request.mode === 'navigate') {
         event.respondWith((async () => {
             const shell = await caches.open(SHELL_CACHE);
+            const fallback = url.pathname === new URL('./course-sources.html', self.registration.scope).pathname
+                ? './course-sources.html' : './';
             const cached = await shell.match(request, { ignoreVary: true })
-                || await shell.match('./', { ignoreVary: true })
+                || await shell.match(fallback, { ignoreVary: true })
                 || await caches.match(request, { ignoreVary: true })
-                || await caches.match('./', { ignoreVary: true });
+                || await caches.match(fallback, { ignoreVary: true });
             try {
                 const response = await fetchWithTimeout(request, NAVIGATION_TIMEOUT_MS);
                 if (response.ok) {
                     await shell.put(request, response.clone());
-                    await shell.put('./', response.clone());
+                    await shell.put(fallback, response.clone());
                 }
                 return response;
             } catch {

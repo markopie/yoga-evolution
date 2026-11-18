@@ -7,6 +7,18 @@ const ratingOptions = [
     { rating: 4, feedback_key: 'good', label: 'Good', subtitle: 'Ready for the next one', emoji: null, progression_score: 1, sort_order: 4, is_active: true },
 ];
 
+// Use reviewed lesson identities with synthetic poses to exercise discovery in mock mode.
+function discoveryLesson(id, title, source, poseIds, section = 'Course 1') {
+    return {
+        id, title, category: source, is_system: true,
+        course_sub_categories: { name: section, course_categories: { name: source } },
+        sequence_json: poseIds.map(target => {
+            const [pose_id, stage] = target.split('/');
+            return stage ? { type: 'pose', pose_id, stage_id: Number(stage) } : { type: 'pose', pose_id };
+        }),
+    };
+}
+
 const courses = [
     {
         id: 101,
@@ -57,7 +69,49 @@ const courses = [
         ],
         course_sub_categories: { id: 4, name: 'PDF Export', category_id: 13, course_categories: { id: 13, name: 'Testing' } },
     },
+    discoveryLesson(114, 'Week 1 & 2', 'Light on Yoga', ['001']),
+    discoveryLesson(115, 'Week 3 & 4', 'Light on Yoga', ['001']),
+    discoveryLesson(116, 'Week 5 & 6', 'Light on Yoga', ['003']),
+    discoveryLesson(213, 'Lesson 1', 'Yoga The Iyengar Way', ['001']),
+    discoveryLesson(215, 'Lesson 2', 'Yoga The Iyengar Way', ['001']),
+    discoveryLesson(227, '1B (Sitting)', 'Yoga The Iyengar Way', ['002'], 'Course 2'),
+    discoveryLesson(231, '2B (Sitting)', 'Yoga The Iyengar Way', ['002'], 'Course 2'),
+    discoveryLesson(235, '3B (Sitting)', 'Yoga The Iyengar Way', ['002'], 'Course 2'),
+    discoveryLesson(294, '1 (Standing and Balancing)', 'Yoga The Iyengar Way', ['002'], 'Course 4'),
+    discoveryLesson(296, '2 (Sitting)', 'Yoga The Iyengar Way', ['002'], 'Course 4'),
+    discoveryLesson(173, 'Day 1', 'How to Use Yoga', ['002'], 'Week 1'),
+    discoveryLesson(177, 'Day 7', 'How to Use Yoga', ['002'], 'Week 1'),
+    discoveryLesson(178, 'Day 1, 3, 5', 'How to Use Yoga', ['002'], 'Week 2'),
+    discoveryLesson(361, 'Introductory 3 month Course', 'Yoga A Gem For Women', ['002'], 'First Year'),
+    discoveryLesson(363, 'Day 1, 5', 'Yoga A Gem For Women', ['002'], 'First Year'),
+    discoveryLesson(369, 'Day 1, 5', 'Yoga A Gem For Women', ['002'], 'Second Year'),
+    discoveryLesson(52, 'Week 1 and 2', 'Light on Pranayama', ['203/32'], 'Course 1 (Preparatory)'),
+    discoveryLesson(53, 'Week 3 and 4', 'Light on Pranayama', ['203/32'], 'Course 1 (Preparatory)'),
+    discoveryLesson(54, 'Week 5 and 6', 'Light on Pranayama', ['203/32'], 'Course 1 (Preparatory)'),
 ];
+
+// Projection of the reviewed source order, including a staged Gem delivery
+// and the breathing lesson embedded in each recovery session.
+const discoveryOrder = [
+    [114, 100], [115, 300], [116, 500], [213, 10], [215, 20], [227, 12], [231, 22], [235, 32],
+    [294, 10], [296, 20], [173, 101], [178, 201], [361, 3610], [363, 3633, 384], [369, 3693],
+    [52, 1000], [53, 3000], [54, 5000],
+].map(([id, source_sequence_order, delivered = id], index) => {
+    const course = courses.find(row => row.id === id);
+    const source_key = course.category.toLowerCase().replaceAll(' ', '_');
+    const source_course = course.course_sub_categories.name;
+    const breath = source_key === 'light_on_pranayama';
+    return {
+        id: 20000 + index, curriculum_slug: ACTIVE_CURRICULUM_SLUG, is_visible: true, is_active: true,
+        source_sequence_order, source_course, source_key: breath ? 'integrated_recovery' : source_key,
+        sequence_id: breath ? null : delivered, lop_id: breath ? String(id) : null,
+        parts: [{
+            source_key, source_course, sequence_id: delivered,
+            role: breath ? 'appended_pranayama' : 'primary_asana',
+            authored_source_course_id: id,
+        }],
+    };
+});
 
 const asanas = [
     { id: '001', name: 'Tadasana', english_name: 'Mountain Pose', sanskrit_name: 'Tadasana', requires_sides: true, asana_categories: { name: 'Standing' } },
@@ -66,6 +120,7 @@ const asanas = [
     { id: '004', name: 'Savasana', english_name: 'Corpse Pose', sanskrit_name: 'Savasana', asana_categories: { name: 'Restorative' } },
     { id: '005', name: 'Savasana Breath Observation', english_name: 'Breath Observation', sanskrit_name: 'Savasana', asana_categories: { name: 'Pranayama' } },
     { id: '006', name: 'Virabhadrasana II', english_name: 'Warrior II', sanskrit_name: 'Virabhadrasana II', asana_categories: { name: 'Standing' } },
+    { id: '203', name: 'Ujjayi', english_name: 'Ujjayi', sanskrit_name: 'Ujjayi', asana_categories: { name: 'Pranayama' } },
 ];
 
 const programCurriculum = [
@@ -297,7 +352,7 @@ class Query {
             if (this.operation === 'upsert') return { data: this.upsertRows(), error: null };
             if (this.operation === 'update') return { data: this.updateRows(), error: null };
             if (this.operation === 'delete') return { data: this.deleteRows(), error: null };
-            const rows = this.applyQuery(getTableRows(this.table));
+            const rows = this.applyQuery(getTableRows(this.table, this.selected));
             const data = this.singleMode || this.maybeSingleMode ? (rows[0] || null) : rows;
             return { data: clone(data), error: null };
         } catch (error) {
@@ -397,12 +452,12 @@ class Query {
     }
 }
 
-function getTableRows(table) {
-    if (table === 'courses') return courses;
+function getTableRows(table, columns) {
+    if (table === 'courses') return courses.map(course => ({ is_system: true, ...course }));
     if (table === 'asanas') return asanas;
-    if (table === 'stages') return [];
+    if (table === 'stages') return [{ id: 32, asana_id: '203', stage_name: 'II', title: 'Stage II' }];
     if (table === 'props') return [];
-    if (table === 'program_curriculum') return programCurriculum;
+    if (table === 'program_curriculum') return columns?.includes('parts:curriculum_payload') ? discoveryOrder : programCurriculum;
     if (table === 'sequence_completions') return completions;
     if (table === 'curriculum_optional_stage_enrollments') {
         return optionalStageEnrollments;

@@ -111,6 +111,7 @@ export function setupClassesUI(root) {
             const selector = document.getElementById('sequenceSelect');
             selector.value = String(window.courses.indexOf(course));
             selector.dispatchEvent(new Event('change'));
+            document.getElementById('manualLibraryPanel').open = false;
         }, true);
         actions.append(practise, overview);
         if (!saved) form.append(basics);

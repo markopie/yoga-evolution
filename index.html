@@ -126,10 +126,16 @@
           <div class="manual-library-panel__body">
              <label class="sequence-search-field">Search sequences<input id="sequenceSearch" type="search" placeholder="Sequence title or ID"></label>
              <div class="sequence-pose-filter">
-               <label for="poseSequenceFilter">Contains pose ID</label>
-               <input id="poseSequenceFilter" type="search" inputmode="numeric" placeholder="Filter by pose ID, e.g. 176 or 176, 180" aria-label="Filter sequences by pose ID (comma separated)">
+               <label for="poseSequenceFilter">Find by pose</label>
+               <input id="poseSequenceFilter" type="search" placeholder="Pose IDs, e.g. 003, 047/142" aria-label="Filter sequences by pose ID (comma separated)">
+               <button id="browseBtn" type="button" title="Find poses by name, ID or variation">Browse poses</button>
+               <label for="poseMatchMode">Match</label>
+               <select id="poseMatchMode">
+                 <option value="any">Any selected pose</option>
+                 <option value="all">All selected poses</option>
+               </select>
                <button id="clearPoseSequenceFilter" type="button" class="tiny">Clear</button>
-               <span id="poseSequenceFilterStatus" class="sequence-pose-filter__status"></span>
+               <span id="poseSequenceFilterStatus" class="sequence-pose-filter__status" role="status"></span>
              </div>
              <div class="row manual-library-panel__controls">
                <label class="class-field">Collection<select id="categoryFilter" style="max-width: 240px; font-weight:bold; color:#444;">
@@ -144,6 +150,25 @@
            
                </label>
              </div>
+             <div id="poseDiscovery" class="pose-discovery" hidden>
+               <section aria-labelledby="poseSequenceHeading">
+                 <h3 id="poseSequenceHeading">Matching sequences</h3>
+                 <p>Matches count poses written into a sequence or its linked sequences. Playback may also add preparation and recovery poses.</p>
+                 <div id="poseSequenceResults"></div>
+               </section>
+               <section aria-labelledby="poseCourseHeading">
+                 <h3 id="poseCourseHeading">Courses with matching lessons</h3>
+                 <p id="poseCourseMatchInfo" hidden>A course can include your selected poses in different lessons.</p>
+                 <div id="poseCourseResults"></div>
+               </section>
+               <section aria-labelledby="poseLearningHeading">
+                 <h3 id="poseLearningHeading">Earlier practice</h3>
+                 <label class="pose-discovery__focus">Focus pose <select id="poseLearningFocus"></select></label>
+                 <label id="poseReferenceField" class="pose-discovery__focus" hidden>Before which lesson? <select id="poseReferenceLesson"></select></label>
+                 <p id="poseOrderStatus" class="muted" role="status" hidden></p>
+                 <div id="poseLearningResults"></div>
+               </section>
+             </div>
              <div id="sequenceActions" class="manual-library-panel__actions">
                <div id="durationDialWrap" title="Adjust hold pace — double-click to reset">
                  <div id="durationDialTrackWrap">
@@ -157,7 +182,6 @@
                  </div>
                </div>
 
-               <button id="browseBtn" type="button" title="Browse poses">Browse poses</button>
              </div>
           </div>
        </details>
@@ -492,6 +516,7 @@
             <span class="muted" id="browseCount">–</span>
          </div>
          <div style="display:flex;gap:10px;align-items:center">
+            <button id="showPoseSearchResults" type="button" hidden>Show matching sequences</button>
             <button id="browseCloseBtn" type="button">Close</button>
          </div>
       </div>

@@ -202,7 +202,7 @@ export function reindexSortOrder(items) {
 }
 
 // Global Exports
-Object.assign(window, {
+if (typeof window !== 'undefined') Object.assign(window, {
     isProtectedSequence,
     getEffectiveTime,
     calculateTotalSequenceTime,
