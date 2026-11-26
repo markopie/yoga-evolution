@@ -19,23 +19,3 @@ jobs:
       LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
       LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
       LLM_MODEL: ${{ secrets.LLM_MODEL }}
-    with:
-      fail-on-high: false
-      request-changes: false
-      max-diff-size: ""
-      max-comments: "15"
-      estimated-request-token-budget: ""
-      max-output-tokens: ""
-      reasoning-effort: ""
-      llm-temperature: "0.1"
-      min-command-permission: "write"
-      bot-review-policy: ""
-      bot-allowlist: ""
-      review-instructions: ""
-      review-instructions-file: ""
-      review-on-synchronize: ""
-      config-file: ""
-      use-json-response-mode: ""
-      agent-mode: ""
-      agent-max-turns: ""
-      agent-max-diff-size: ""
