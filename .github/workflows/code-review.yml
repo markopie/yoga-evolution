@@ -1,11 +1,21 @@
-name: AI Code Review
+name: Robin
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
 
 jobs:
-  ai-review:
+  review:
     if: github.event.pull_request.draft == false
-    uses: markopie/.github/.github/workflows/reusable-robin.yml@main
-    secrets: inherit
+    uses: antongulin/robin/.github/workflows/review.yml@main
+    secrets:
+      LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+      LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+      LLM_MODEL: ${{ secrets.LLM_MODEL }}
