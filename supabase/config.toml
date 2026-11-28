@@ -74,6 +74,9 @@ policy = "per_worker"
 [functions.account-recovery-request]
 verify_jwt = false
 
+[functions.yoga-coach]
+verify_jwt = true
+
 [functions.account-recovery-complete]
 verify_jwt = false
 

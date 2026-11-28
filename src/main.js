@@ -63,6 +63,8 @@ if (!new URLSearchParams(window.location.search).get('prototype')) {
     setupSyncStatusUI();
     const { setupAppNavigation } = await import('./ui/appNavigation.js');
     setupAppNavigation();
+    const { setupCoachUI } = await import('./ui/coachUI.js');
+    setupCoachUI();
     await setupProfileUI();
     cacheLoadedAppShell().catch((error) =>
         console.warn('[Offline] App shell caching failed:', error));
